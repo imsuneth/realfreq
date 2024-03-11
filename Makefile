@@ -16,7 +16,7 @@ BUILD_DIR = build
 OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
 
 # Executable name
-BINARY = realmeth
+BINARY = realfreq
 
 # Phony targets
 .PHONY: all clean
