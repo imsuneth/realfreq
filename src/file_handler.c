@@ -31,7 +31,6 @@ SOFTWARE.
 
 #include <stdio.h>
 #include "file_handler.h"
-#include "map.h"
 #include "logger.h"
 #include "misc.h"
 #include "utils.h"

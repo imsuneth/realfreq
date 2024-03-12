@@ -31,7 +31,6 @@ SOFTWARE.
 #include "mod.h"
 #include "misc.h"
 #include "error.h"
-#include "khash.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -89,22 +88,9 @@ enum MOD_CODES {
     MOD_xC = 'C'
 };
 
-typedef struct {
-    const char * chrom;
-    int start;
-    int end;
-    int depth;
-    int n_mod;
-    int n_called;
-    int n_skipped;
-    double freq;
-    char mod_code;
-    char mod_strand;
-    char strand;
-} stat_t;
-
-KHASH_MAP_INIT_STR(str, stat_t);
 KHASH_MAP_INIT_STR(nr, int);
+
+khash_t(str)* stats_map;
 
 char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
@@ -908,7 +894,9 @@ void simple_meth_view(core_t* core){
 void meth_freq(core_t* core){
 
     print_meth_freq_hdr();
-    khash_t(str)* stats_map = kh_init(str);
+    if(stats_map == NULL){
+        stats_map = kh_init(str);
+    }
     khash_t(nr)* depth_map = kh_init(nr);
     khash_t(nr)* n_skipped_map = kh_init(nr);
 
@@ -951,10 +939,8 @@ void meth_freq(core_t* core){
     free(stats);
     free_depth_map(depth_map);
     free_depth_map(n_skipped_map);
-    free_stats_map(stats_map);
 
     bam_destroy1(record);
     return;
 }
-
 
