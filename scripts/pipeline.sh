@@ -1,16 +1,15 @@
 #!/bin/bash
 
 # Configuration
-GUPPY_BIN=/home/suneth/tools/ont-dorado-server/bin
+GUPPY_BIN=/data/suneth/tools/ont-dorado-server/bin
+REF=/data/suneth/work/tool-validation/exp/test/hg38noAlt.fa
 MODEL_CONFIG="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_fast.cfg"
-REF=/media/suneth/Data/Workspace/validate/data/ref/hg38noAlt.fa
 # End of Configuration
 
 if [ -z "$1" ]; then
 	echo "Usage: $0 <experiment_dir>"
 	exit 1
 fi
-
 EXP_DIR=$1
 
 RED='\033[0;31m'
@@ -22,19 +21,6 @@ die() {
 	exit 1
 }
 
-check_prev_cmd() {
-    if [ $? -ne 0 ]; then
-        die $RED"$1"$NC
-    fi
-}
-
-check_cmd() {
-    if ! command -v $1 &> /dev/null
-    then
-        die $RED"$1 command not found."$NC
-    fi
-}
-
 SLOW5TOOLS=slow5tools
 BLUECRAB=blue-crab
 BUTTERY_EEL=buttery-eel
@@ -44,26 +30,34 @@ F5C=f5c
 REALFREQ=realfreq
 INOTIFYWAIT=inotifywait
 
-check_cmd $INOTIFYWAIT
-check_cmd $SLOW5TOOLS
-check_cmd $BUTTERY_EEL
-check_cmd $MINIMAP2
-check_cmd $SAMTOOLS
-check_cmd $F5C
-check_cmd $REALFREQ
-
-$BLUECRAB --version
-check_prev_cmd "Error in running blue-crab. Make sure virtual environment is activated"
+command -v $INOTIFYWAIT &> /dev/null || die $RED"$INOTIFYWAIT command not found."$NC
+command -v $SLOW5TOOLS &> /dev/null || die $RED"$SLOW5TOOLS command not found."$NC
+command -v $BLUECRAB &> /dev/null || die $RED"$BLUECRAB command not found."$NC
+command -v $BUTTERY_EEL &> /dev/null || die $RED"$BUTTERY_EEL command not found."$NC
+command -v $MINIMAP2 &> /dev/null || die $RED"$MINIMAP2 command not found."$NC
+command -v $SAMTOOLS &> /dev/null || die $RED"$SAMTOOLS command not found."$NC
+command -v $F5C &> /dev/null || die $RED"$F5C command not found."$NC
+command -v $REALFREQ &> /dev/null || die $RED"$REALFREQ command not found."$NC
+command -v $BLUECRAB --version &> /dev/null || die $RED"$BLUECRAB command not found."$NC
 
 EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp"
 
+
 # download realp2s if not present
-REALP2S=scripts/realp2s.sh
-if [ ! -f $REALP2S ]; then
+if [ ! -d scripts/realtime-p2s ]; then
+    mkdir -p scripts/realtime-p2s/monitor
     echo "Downloading realp2s"
-    wget -O $REALP2S https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/realp2s.sh
-    chmod +x $REALP2S
+    wget -O scripts/realtime-p2s/realp2s.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/realp2s.sh
+    wget -O scripts/realtime-p2s/pipeline.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/pipeline.sh
+    wget -O scripts/realtime-p2s/monitor/monitor.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/monitor.sh
+    wget -O scripts/realtime-p2s/monitor/ensure.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/ensure.sh
+    chmod +x scripts/realtime-p2s/realp2s.sh
+    chmod +x scripts/realtime-p2s/pipeline.sh
+    chmod +x scripts/realtime-p2s/monitor/monitor.sh
+    chmod +x scripts/realtime-p2s/monitor/ensure.sh
 fi
+
+REALP2S=scripts/realtime-p2s/realp2s.sh
 
 # required for bluecrab
 export SLOW5TOOLS=$SLOW5TOOLS
@@ -71,27 +65,18 @@ export BLUECRAB=$BLUECRAB
 export REALP2S_AUTO=0
 
 pipeline() {
-    while read blow5file; do
-        readname=$(basename -s .blow5 $blow5file)
-        
-        echo "Basecalling $blow5file"
-        unalignedsamfile="$EXP_DIR/sam/$readname.unaln.sam"
-        $EEL--call_mods --config $MODEL_CONFIG -i $blow5file -o $unalignedsamfile --device cuda:all
-        check_prev_cmd "Error in basecalling $blow5file"
+    while read blow5; do
+        read=$(basename -s .blow5 $blow5)
 
-        echo "Aligning $unalignedsamfile and get bam-file"
-        bamfile="$EXP_DIR/sam/$readname.aln.mod.bam"
-        samtools fastq -@ 36 -TMM,ML $unalignedsamfile | \
-        minimap2 -t 36 -ax map-ont -y $REF - | \
-        samtools view -@ 36 -Sb - | \
-        samtools sort -@ 36 - > $bamfile
-        check_prev_cmd "Error in aligning $unalignedsamfile"
+        unalsam="$EXP_DIR/sam/$read.unaln.sam"
+        $EEL --call_mods --config $MODEL_CONFIG -i $blow5 -o $unalsam --device cuda:all || die "Error in basecalling $blow5"
 
-        echo "Indexing $bamfile"
-        samtools index -@ 36 $bamfile
-        check_prev_cmd "Error in indexing $bamfile"
+        bam="$EXP_DIR/sam/$read.aln.mod.bam"
+        samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -ax map-ont -y $REF - | samtools view -@ 36 -Sb - | samtools sort -@ 36 - > $bam || die "Error in aligning $unalsam"
 
-        echo "Finished. bam-file: $bamfile"
+        samtools index -@ 36 $bam || die "Error in indexing $bam"
+
+        echo "Finished. bam-file: $bam"
         
         sleep 10
     done
@@ -101,10 +86,10 @@ catch_blow5() {
     while read line; do
         echo $(date) $line >> $EXP_DIR/realp2s.log
         if [[ $line == *"Finished converting"* ]]; then
-            blow5file=$(echo $line | grep -oP '(?<=to ).*')
+            blow5=$(echo $line | grep -oP '(?<=to ).*')
             #check file extension
-            if [[ $blow5file == *.blow5 ]]; then
-                echo $blow5file
+            if [[ $blow5 == *.blow5 ]]; then
+                echo $blow5
             fi
             
         fi
@@ -115,10 +100,10 @@ catch_bam() {
     while read line; do
         echo $(date) $line >> $EXP_DIR/pipeline.log
         if [[ $line == *"Finished"* ]]; then
-            bamfile=$(echo $line | grep -oP '(?<=bam-file: ).*')
+            bam=$(echo $line | grep -oP '(?<=bam-file: ).*')
             #check file extension 
-            if [[ $bamfile == *.bam ]]; then
-                echo $bamfile
+            if [[ $bam == *.bam ]]; then
+                echo $bam
             fi
         fi
     done
