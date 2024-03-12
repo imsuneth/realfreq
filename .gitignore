@@ -43,3 +43,4 @@ Thumbs.db
 # binaries
 /realfreq
 /htslib
+/scripts/realtime-p2s
