@@ -448,7 +448,7 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
         // Iterate over the pairs of aligned bases
         for(int j = 0; j < cigar_len; ++j) {
             if(is_aligned) {
-                assert(read_pos < seq_len);
+                ASSERT_MSG(read_pos < seq_len, "read_pos:%d seq_len:%d\n", read_pos, seq_len);
                 int start = ref_pos;
                 if(rev) {
                     start = pos + end - ref_pos - 1;
@@ -893,16 +893,18 @@ void simple_meth_view(core_t* core){
 
 void meth_freq(core_t* core){
 
-    print_meth_freq_hdr();
+    bam1_t *record = bam_init1();
+    if(record->core.l_qseq == 0){
+        return;
+    }
+
     if(stats_map == NULL){
         stats_map = kh_init(str);
     }
     khash_t(nr)* depth_map = kh_init(nr);
     khash_t(nr)* n_skipped_map = kh_init(nr);
 
-    bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
-
 
         const char *mm = get_mm_tag_ptr(record);
         uint32_t ml_len;

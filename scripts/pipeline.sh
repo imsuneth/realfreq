@@ -1,16 +1,29 @@
 #!/bin/bash
 
-# Configuration
-GUPPY_BIN=/data/suneth/tools/ont-dorado-server/bin
-REF=/data/suneth/work/tool-validation/exp/test/hg38noAlt.fa
-MODEL_CONFIG="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_fast.cfg"
-# End of Configuration
+# check if env variables are set
+if [ -z "$GUPPY_BIN" ]; then
+    echo "GUPPY_BIN is not set."
+    exit 1
+fi
+
+if [ -z "$REF" ]; then
+    echo "REF is not set."
+    exit 1
+fi
+
+if [ -z "$MODEL" ]; then
+    echo "MODEL is not set."
+    exit 1
+fi
 
 if [ -z "$1" ]; then
 	echo "Usage: $0 <experiment_dir>"
 	exit 1
 fi
 EXP_DIR=$1
+
+mkdir -p $EXP_DIR
+chown -R $USER $EXP_DIR
 
 RED='\033[0;31m'
 NC='\033[0m' # No Color
@@ -67,17 +80,14 @@ export REALP2S_AUTO=0
 pipeline() {
     while read blow5; do
         read=$(basename -s .blow5 $blow5)
-
         unalsam="$EXP_DIR/sam/$read.unaln.sam"
-        $EEL --call_mods --config $MODEL_CONFIG -i $blow5 -o $unalsam --device cuda:all || die "Error in basecalling $blow5"
-
         bam="$EXP_DIR/sam/$read.aln.mod.bam"
-        samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -ax map-ont -y $REF - | samtools view -@ 36 -Sb - | samtools sort -@ 36 - > $bam || die "Error in aligning $unalsam"
 
+        $EEL --call_mods --config $MODEL -i $blow5 -o $unalsam --device cuda:all || die "Error in basecalling $blow5"
+        samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -ax map-ont -y $REF - | samtools view -@ 36 -Sb - | samtools sort -@ 36 - > $bam || die "Error in aligning $unalsam"
         samtools index -@ 36 $bam || die "Error in indexing $bam"
 
         echo "Finished. bam-file: $bam"
-        
         sleep 10
     done
 }
