@@ -11,7 +11,6 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 
-void read_files_from_stdin();
-void read_file_contents(char *filepath);
+void read_files_from_stdin(const char *output_file);
 
 #endif /* FILE_HANDLER_H */

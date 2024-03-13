@@ -123,4 +123,5 @@ catch_bam() {
 
 echo > $EXP_DIR/realp2s.log
 echo > $EXP_DIR/pipeline.log
-$REALP2S -m $EXP_DIR | catch_blow5 | pipeline | catch_bam | $REALFREQ > $EXP_DIR/freq.tsv
+echo > $EXP_DIR/realfreq.log
+$REALP2S -m $EXP_DIR | catch_blow5 | pipeline 2>> $EXP_DIR/pipeline.log | catch_bam | $REALFREQ 2>> $EXP_DIR/realfreq.log > $EXP_DIR/freq.tsv

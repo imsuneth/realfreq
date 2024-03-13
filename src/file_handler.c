@@ -35,22 +35,36 @@ SOFTWARE.
 #include "misc.h"
 #include "utils.h"
 #include "mod.h"
+#include "error.h"
 
+void write_output(const char *output_file) {
+    FILE *output_fp = fopen(output_file, "w");
+    if (output_fp == NULL) {
+        ERROR("could not open the output file %s", output_file);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(stderr, "Writing output to %s\n", output_file);
+    print_stats(output_fp);
+    fprintf(stderr, "Output written to %s\n", output_file);
+    fclose(output_fp);
+    return;
+}
 
-void read_files_from_stdin() {
+void read_files_from_stdin(const char *output_file) {
     char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
     while (1) {
         int status = fscanf(stdin, "%s", filepath);
         if (ferror(stdin) || feof(stdin)) {
             break;
         }
-        read_file_contents(filepath);
+        read_file_contents(filepath, output_file);
         log_file_processed(filepath);
     }
+    free(filepath);
 }
 
 
-void read_file_contents(char *filepath) {
+void read_file_contents(char *filepath, const char *output_file) {
 
     double realtime0 = realtime();
 
@@ -61,10 +75,8 @@ void read_file_contents(char *filepath) {
     core_t* core = init_core(filepath, opt, realtime0);
 
     meth_freq(core);
-
+    write_output(output_file);
     //free the core data structure
     free_core(core,opt);
-
     return;
 }
-
