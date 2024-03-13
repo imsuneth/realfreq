@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# set -x
 # check if env variables are set
 if [ -z "$GUPPY_BIN" ]; then
     echo "GUPPY_BIN is not set."
@@ -64,10 +64,12 @@ if [ ! -d scripts/realtime-p2s ]; then
     wget -O scripts/realtime-p2s/pipeline.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/pipeline.sh
     wget -O scripts/realtime-p2s/monitor/monitor.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/monitor.sh
     wget -O scripts/realtime-p2s/monitor/ensure.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/ensure.sh
+    wget -O scripts/realtime-p2s/monitor/simulator.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/simulator.sh
     chmod +x scripts/realtime-p2s/realp2s.sh
     chmod +x scripts/realtime-p2s/pipeline.sh
     chmod +x scripts/realtime-p2s/monitor/monitor.sh
     chmod +x scripts/realtime-p2s/monitor/ensure.sh
+    chmod +x scripts/realtime-p2s/monitor/simulator.sh
 fi
 
 REALP2S=scripts/realtime-p2s/realp2s.sh
