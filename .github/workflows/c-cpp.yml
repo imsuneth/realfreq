@@ -7,19 +7,6 @@ on:
     branches: [ '*' ]
 
 jobs:
-  ubuntu_18:
-    name: Ubuntu 18
-    runs-on: ubuntu-18.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: install htslib
-      run: ./scripts/install-hts.sh
-    - name: test
-      run: make test
-    - name: install valgrind
-      run: sudo apt-get install valgrind
-    - name: memtest
-      run: make memtest
   ubuntu_22:
     name: Ubuntu 22
     runs-on: ubuntu-22.04
