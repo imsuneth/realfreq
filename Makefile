@@ -52,5 +52,12 @@ htslib/libhts.a:
 clean:
 	rm -f $(OBJS) $(BINARY)
 
+# Run tests
+test: $(BINARY)
+	./test/test.sh
+
+memtest: $(BINARY)
+	./test/test.sh mem
+
 # Create build directory if it doesn't exist
 $(shell mkdir -p $(BUILD_DIR))

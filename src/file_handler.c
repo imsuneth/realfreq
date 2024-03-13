@@ -43,7 +43,6 @@ void write_output(const char *output_file) {
         ERROR("could not open the output file %s", output_file);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "Writing output to %s\n", output_file);
     print_stats(output_fp);
     fprintf(stderr, "Output written to %s\n", output_file);
     fclose(output_fp);
