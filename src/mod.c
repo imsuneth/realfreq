@@ -774,8 +774,8 @@ static void print_meth_call_hdr(){
     printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tref_strand\tref_mod_strand\tfw_soft_clipped_start\tfw_soft_clipped_end\tread_length\tmod_qual\tmod_code\tbase_qual\tref_kmer\tquery_kmer\tcanonical_base\tmodified_primary_base\tinferred\tflag\n");
 }
 
-static void print_meth_freq_hdr(){
-    printf("chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\n");
+static void print_meth_freq_hdr(FILE * output_file){
+    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\n");
 }
 
 static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
@@ -802,7 +802,7 @@ static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map,
 }
 
 static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_len, enum MOD_CODES print_mod_code){
-
+    print_meth_freq_hdr(output_file);
     for(int i=0;i<seq_len;i++){
         stat_t * stat = stats[i];
         if(print_mod_code != MOD_ALL && stat->mod_code != print_mod_code){
