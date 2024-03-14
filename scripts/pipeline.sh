@@ -57,7 +57,7 @@ unalsam="$OUT_DIR/$read.remora.unaln.sam"
 bam="$OUT_DIR/$read.remora.bam"
 
 $EEL --call_mods --config $MODEL -i $blow5 -o $unalsam --device cuda:all || die "Error in basecalling $blow5"
-samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -ax map-ont -y --secondary=no $REFIDX - | samtools sort -@ 36 - > $bam || die "Error in aligning $unalsam"
+samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX - | samtools sort -@ 36 - > $bam || die "Error in aligning $unalsam"
 samtools index -@ 36 $bam || die "Error in indexing $bam"
 
 echo "Finished. bam-file: $bam"
