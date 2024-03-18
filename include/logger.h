@@ -1,8 +1,10 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#define LOG_FILE_PATH "logfile.txt"
+#include <stdbool.h>
 
-void log_file_processed(const char *path);
+void set_processed_files_log(const char *filepath);
+void lear_log(bool clear);
+void log_file_processed(const char *bamfile, double realtime_meth_freq, double realtime_write_output);
 
 #endif /* LOGGER_H */

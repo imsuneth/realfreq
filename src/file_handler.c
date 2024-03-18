@@ -37,33 +37,40 @@ SOFTWARE.
 #include "mod.h"
 #include "error.h"
 
-void write_output(const char *output_file) {
-    FILE *output_fp = fopen(output_file, "w");
+static const char *output_tsv;
+
+void set_output_file(const char *output_file) {
+    output_tsv = output_file;
+}
+
+
+void write_output() {
+    FILE *output_fp = fopen(output_tsv, "w");
     if (output_fp == NULL) {
-        ERROR("could not open the output file %s", output_file);
+        ERROR("could not open the output file %s", output_tsv);
         exit(EXIT_FAILURE);
     }
     print_stats(output_fp);
-    fprintf(stderr, "Output written to %s\n", output_file);
     fclose(output_fp);
     return;
 }
 
-void read_files_from_stdin(const char *output_file) {
+void read_files_from_stdin() {
     char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
     while (1) {
         int status = fscanf(stdin, "%s", filepath);
         if (ferror(stdin) || feof(stdin)) {
             break;
         }
-        read_file_contents(filepath, output_file);
-        log_file_processed(filepath);
+        
+        read_file_contents(filepath);
+        
     }
     free(filepath);
 }
 
 
-void read_file_contents(char *filepath, const char *output_file) {
+void read_file_contents(char *filepath) {
 
     double realtime0 = realtime();
 
@@ -74,7 +81,15 @@ void read_file_contents(char *filepath, const char *output_file) {
     core_t* core = init_core(filepath, opt, realtime0);
 
     meth_freq(core);
-    write_output(output_file);
+
+    double realtime1 = realtime();
+
+    write_output(output_tsv);
+
+    double realtime2 = realtime();
+
+    log_file_processed(filepath, realtime1 - realtime0, realtime2 - realtime1);
+
     //free the core data structure
     free_core(core,opt);
     return;
