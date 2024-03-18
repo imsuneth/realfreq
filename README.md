@@ -20,7 +20,14 @@ Make sure to run ```source ~/.bashrc``` in order to use <em>realfreq</em> on alr
 ### Run <em>realfreq</em> on a Minknow experiment directory
 #### 01. Execute the following command on a terminal **before** starting sequencing run on Minknow.
 ```bash
-./scripts/realfreq.sh <exp_dir>
+./scripts/realfreq.sh [-h] [-y] -g <guppy_bin> -r <reference> -i <reference_index> -m <model> -d <monitor_dir>
+  -h  Show help message
+  -y  Say yes to all prompts
+  -g  Path to guppy binary
+  -r  Path to reference fasta
+  -i  Path to reference index
+  -m  Model name
+  -d  Directory to monitor for blow5 files
 ```
 Make sure to set <em><exp_dir></em> to the absolute path of the experiment directory set in Minknow. (ex:<em>/opt/ont/minknow/data/exp001</em>). Note that <em>realfreq.sh</em> will create the <em><exp_dir></em> if it doesn't exist.
 
