@@ -134,12 +134,11 @@ pipeline() {
     while read blow5; do
         echo $(date) "Starting pipeline for $blow5" >> $LOG
         START_TIME=$(date)
-        echo $blow5 >> $LOG_ATTEMPTED
+        echo -e "$START_TIME\t$blow5" >> $LOG_ATTEMPTED
         $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $LOG || echo $blow5 >> $LOG_FAILED
         END_TIME=$(date)
-        bam=$MONITOR_DIR/sam/$(basename $blow5 .blow5).bam
-        echo -e "$$blow5\t$$bam\t$START_TIME\t$END_TIME" >> $LOG_DONE
-        sleep 10
+        echo -e "$END_TIME\t$blow5" >> $LOG_DONE
+        echo -e "$blow5\t$START_TIME\t$END_TIME" >> $LOG_START_END
     done
 }
 
@@ -173,16 +172,27 @@ catch_bam() {
 REALFREQ_PROCESSED_LOG=$MONITOR_DIR/realfreq_processed.log
 LOG=$MONITOR_DIR/realfreq.log
 LOG_ATTEMPTED=$MONITOR_DIR/realfreq_pipeline_attempted.log
-LOG_DONE=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
+LOG_DONE=$MONITOR_DIR/realfreq_pipeline_done.log
+LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
 LOG_FAILED=$MONITOR_DIR/realfreq_pipeline_failed.log
 
-# check if clear_realfreq_logs=true by realp2s
-if [ "$clear_realfreq_logs"=true ]; then
-    clear_realfreq_logs=false
+clear_logs(){
     test -e $LOG && rm $LOG # Empty log file
     test -e $LOG_ATTEMPTED && rm $LOG_ATTEMPTED # Empty log file
     test -e $LOG_DONE && rm $LOG_DONE # Empty log file
+    test -e $LOG_START_END && rm $LOG_START_END # Empty log file
     test -e $LOG_FAILED && rm $LOG_FAILED # Empty log file
+}
+
+#if say_yes is true, clear logs
+if [ "$say_yes"=true ]; then
+    clear_logs
+else
+    read -p "$0 Clear logs? [y/n] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        clear_logs
+    fi
 fi
 
 $REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag
