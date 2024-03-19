@@ -55,7 +55,7 @@ When <em>realfreq</em> finishes processing a new batch of reads, it writes the u
 Each field of <em>freq.tsv</em> is listed below with their definition.
 
 | Field    | Definition    |
-|----------|:-------------:|
+|----------|-------------|
 | 1. chrom | choromosome |
 | 2. start | position (0-based) of the base |
 | 3. end   | position (0-based) of the base |
