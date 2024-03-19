@@ -33,7 +33,7 @@ SOFTWARE.
 #include "file_handler.h"
 #include "logger.h"
 #include "misc.h"
-#include "utils.h"
+#include "minimod.h"
 #include "mod.h"
 #include "error.h"
 

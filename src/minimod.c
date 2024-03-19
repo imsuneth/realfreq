@@ -1,6 +1,6 @@
 /**
- * @file utils.c
- * @brief common functions
+ * @file minimod.c
+ * @brief common functions for minimod
  * @author Hasindu Gamaarachchi (hasindu@unsw.edu.au)
 
 MIT License
@@ -35,7 +35,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils.h"
+#include "minimod.h"
 #include "misc.h"
 #include "error.h"
 

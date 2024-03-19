@@ -1,7 +1,7 @@
 #ifndef MOD_H
 #define MOD_H
 
-#include "utils.h"
+#include "minimod.h"
 
 void meth_freq(core_t* core);
 void mod_init();

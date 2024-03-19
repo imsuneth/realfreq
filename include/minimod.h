@@ -1,4 +1,8 @@
-/*
+/**
+ * @file minimod.c
+ * @brief common functions for minimod
+ * @author Hasindu Gamaarachchi (hasindu@unsw.edu.au)
+
 MIT License
 
 Copyright (c) 2019 Hasindu Gamaarachchi (hasindu@unsw.edu.au)
@@ -24,9 +28,8 @@ SOFTWARE.
 
 ******************************************************************************/
 
-
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef MINIMOD_H
+#define MINIMOD_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -180,4 +183,4 @@ void free_db(db_t* db);
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);
 
-#endif /* UTILS_H */
+#endif

@@ -30,7 +30,7 @@ SOFTWARE.
 
 
 #include <pthread.h>
-#include "utils.h"
+#include "minimod.h"
 #include "error.h"
 #include "misc.h"
 
