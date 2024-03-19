@@ -132,19 +132,19 @@ export REALP2S_AUTO=0
 
 pipeline() {
     while read blow5; do
-        echo $(date) "Starting pipeline for $blow5" >> $LOG
+        echo $(date) "Starting pipeline for $blow5" >> $SCRIPT_LOG
         START_TIME=$(date)
-        echo -e "$START_TIME\t$blow5" >> $LOG_ATTEMPTED
-        $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $LOG || echo "$(date)\t$blow5" >> $LOG_FAILED
+        echo -e "$START_TIME\t$blow5" >> $PIPELINE_LOG_ATTEMPTED
+        $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG || echo "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED
         END_TIME=$(date)
-        echo -e "$END_TIME\t$blow5" >> $LOG_DONE
-        echo -e "$blow5\t$START_TIME\t$END_TIME" >> $LOG_START_END
+        echo -e "$END_TIME\t$blow5" >> $PIPELINE_LOG_DONE
+        echo -e "$blow5\t$START_TIME\t$END_TIME" >> $PIPELINE_LOG_START_END
     done
 }
 
 catch_blow5() {
     while read line; do
-        echo $(date) $line >> $LOG
+        echo $(date) $line >> $SCRIPT_LOG
         if [[ $line == *"Finished converting"* ]]; then
             blow5=$(echo $line | grep -oP '(?<=to ).*')
             #check file extension
@@ -158,7 +158,7 @@ catch_blow5() {
 
 catch_bam() {
     while read line; do
-        echo $(date) $line >> $LOG
+        echo $(date) $line >> $SCRIPT_LOG
         if [[ $line == *"Finished"* ]]; then
             bam=$(echo $line | grep -oP '(?<=bam-file: ).*')
             #check file extension 
@@ -170,18 +170,18 @@ catch_bam() {
 }
 
 REALFREQ_PROCESSED_LOG=$MONITOR_DIR/realfreq_processed.log
-LOG=$MONITOR_DIR/realfreq.log
-LOG_ATTEMPTED=$MONITOR_DIR/realfreq_pipeline_attempted.log
-LOG_DONE=$MONITOR_DIR/realfreq_pipeline_done.log
-LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
-LOG_FAILED=$MONITOR_DIR/realfreq_pipeline_failed.log
+SCRIPT_LOG=$MONITOR_DIR/realfreq.log
+PIPELINE_LOG_ATTEMPTED=$MONITOR_DIR/realfreq_pipeline_attempted.log
+PIPELINE_LOG_DONE=$MONITOR_DIR/realfreq_pipeline_done.log
+PIPELINE_LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
+PIPELINE_LOG_FAILED=$MONITOR_DIR/realfreq_pipeline_failed.log
 
 clear_logs(){
-    test -e $LOG && rm $LOG # Empty log file
-    test -e $LOG_ATTEMPTED && rm $LOG_ATTEMPTED # Empty log file
-    test -e $LOG_DONE && rm $LOG_DONE # Empty log file
-    test -e $LOG_START_END && rm $LOG_START_END # Empty log file
-    test -e $LOG_FAILED && rm $LOG_FAILED # Empty log file
+    test -e $SCRIPT_LOG && rm $SCRIPT_LOG # Empty log file
+    test -e $PIPELINE_LOG_ATTEMPTED && rm $PIPELINE_LOG_ATTEMPTED # Empty log file
+    test -e $PIPELINE_LOG_DONE && rm $PIPELINE_LOG_DONE # Empty log file
+    test -e $PIPELINE_LOG_START_END && rm $PIPELINE_LOG_START_END # Empty log file
+    test -e $PIPELINE_LOG_FAILED && rm $PIPELINE_LOG_FAILED # Empty log file
 }
 
 #if say_yes is true, clear logs
