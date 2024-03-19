@@ -30,6 +30,22 @@ usage() {
     echo
 }
 
+# download realp2s if not present
+if [ ! -d scripts/realtime-p2s ]; then
+    mkdir -p scripts/realtime-p2s/monitor
+    echo "Downloading realp2s"
+    wget -O scripts/realtime-p2s/realp2s.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/realp2s.sh
+    wget -O scripts/realtime-p2s/pipeline.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/pipeline.sh
+    wget -O scripts/realtime-p2s/monitor/monitor.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/monitor.sh
+    wget -O scripts/realtime-p2s/monitor/ensure.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/ensure.sh
+    wget -O scripts/realtime-p2s/monitor/simulator.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/simulator.sh
+    chmod +x scripts/realtime-p2s/realp2s.sh
+    chmod +x scripts/realtime-p2s/pipeline.sh
+    chmod +x scripts/realtime-p2s/monitor/monitor.sh
+    chmod +x scripts/realtime-p2s/monitor/ensure.sh
+    chmod +x scripts/realtime-p2s/monitor/simulator.sh
+fi
+
 say_yes=false
 guppy_bin_set=false
 reference_set=false
@@ -107,22 +123,6 @@ command -v $BLUECRAB --version &> /dev/null || die $RED"$BLUECRAB command not fo
 
 EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp"
 
-# download realp2s if not present
-if [ ! -d scripts/realtime-p2s ]; then
-    mkdir -p scripts/realtime-p2s/monitor
-    echo "Downloading realp2s"
-    wget -O scripts/realtime-p2s/realp2s.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/realp2s.sh
-    wget -O scripts/realtime-p2s/pipeline.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/pipeline.sh
-    wget -O scripts/realtime-p2s/monitor/monitor.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/monitor.sh
-    wget -O scripts/realtime-p2s/monitor/ensure.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/ensure.sh
-    wget -O scripts/realtime-p2s/monitor/simulator.sh https://raw.githubusercontent.com/Psy-Fer/blue-crab/main/scripts/realtime-p2s/monitor/simulator.sh
-    chmod +x scripts/realtime-p2s/realp2s.sh
-    chmod +x scripts/realtime-p2s/pipeline.sh
-    chmod +x scripts/realtime-p2s/monitor/monitor.sh
-    chmod +x scripts/realtime-p2s/monitor/ensure.sh
-    chmod +x scripts/realtime-p2s/monitor/simulator.sh
-fi
-
 REALP2S=scripts/realtime-p2s/realp2s.sh
 
 # required for bluecrab
@@ -135,7 +135,7 @@ pipeline() {
         echo $(date) "Starting pipeline for $blow5" >> $SCRIPT_LOG
         START_TIME=$(date)
         echo -e "$START_TIME\t$blow5" >> $PIPELINE_LOG_ATTEMPTED
-        $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG || echo "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED
+        $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG || echo -e ""$(date)"\t$blow5" >> $PIPELINE_LOG_FAILED
         END_TIME=$(date)
         echo -e "$END_TIME\t$blow5" >> $PIPELINE_LOG_DONE
         echo -e "$blow5\t$START_TIME\t$END_TIME" >> $PIPELINE_LOG_START_END

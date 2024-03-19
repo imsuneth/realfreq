@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -x
+set -x
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
@@ -94,11 +94,15 @@ EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp"
 
 read=$(basename -s .blow5 $BLOW5)
 unalsam="$OUT_DIR/$read.remora.unaln.sam"
+fastq="$OUT_DIR/$read.remora.fastq"
+unsortedbam="$OUT_DIR/$read.remora.unsorted.bam"
 bam="$OUT_DIR/$read.remora.bam"
 
-$EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam --device cuda:all || die "$BLOW5 buttery-eel failed"
-samtools fastq -@ 36 -TMM,ML $unalsam | minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX - | samtools sort -@ 36 - > $bam || die "$BLOW5 mapping failed"
-samtools index -@ 36 $bam || die "$BLOW5 indexing failed"
+/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam --device cuda:all || die "$BLOW5 buttery-eel failed"
+/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || die "$BLOW5 samtools failed"
+/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || die "$BLOW5 minimap2 failed" 
+/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || die "$BLOW5 mapping failed"
+/usr/bin/time -v samtools index -@ 36 $bam || die "$BLOW5 indexing failed"
 
 echo "Finished. bam-file: $bam"
 exit 0
