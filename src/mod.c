@@ -895,13 +895,13 @@ void meth_freq(core_t* core){
     return;
 }
 
-void init_maps(){
+void mod_init(){
     stats_map = kh_init(str);
     depth_map = kh_init(nr);
     n_skipped_map = kh_init(nr);
 }
 
-void destroy_maps(){
+void destroy_mod(){
     free_stats_map(stats_map);
     free_depth_map(depth_map);
     free_depth_map(n_skipped_map);

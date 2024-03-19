@@ -1,9 +1,23 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "file_handler.h"
 #include "logger.h"
 #include "mod.h"
+#include "error.h"
+
+static const char * logfile = "realfreq_processed.log";
+
+void initialize() {
+    init_logger(logfile);
+    mod_init();
+}
+
+void destroy() {
+    destroy_mod();
+    destroy_logger();
+}
 
 int main(int argc, char* argv[]) {
     //parse the user args
@@ -15,7 +29,9 @@ int main(int argc, char* argv[]) {
                 set_output_file(optarg);
                 break;
             case 'l':
-                set_processed_files_log(optarg);
+                logfile = (const char *)malloc(sizeof(char)*strlen(optarg));
+                MALLOC_CHK(logfile);
+                strcpy(logfile, optarg);
                 break;
             case 'y':
                 clear_log(true);
@@ -26,8 +42,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    init_maps();
+    initialize();
     read_files_from_stdin();
-    destroy_maps();
+    destroy();
     return 0;
 }

@@ -3,8 +3,12 @@
 
 static const char *processed_files_log;
 
-void set_processed_files_log(const char *filepath) {
+void init_logger(const char *filepath) {
     processed_files_log = filepath;
+}
+
+void destroy_logger() {
+    // free((void *)processed_files_log);
 }
 
 void clear_log(bool clear) {
@@ -21,6 +25,9 @@ void log_file_processed(const char *bamfile, double realtime_meth_freq, double r
     if (log_file) {
         fprintf(log_file, "%s\t%.3f sec\t%.3f sec\n", bamfile, realtime_meth_freq, realtime_write_output);
         fclose(log_file);
+    } else {
+        fprintf(stderr, "Error: cannot open log file %s\n", processed_files_log);
     }
+    
 }
 

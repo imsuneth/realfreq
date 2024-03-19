@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 # terminate script
 die() {
 	echo "$1" >&2
