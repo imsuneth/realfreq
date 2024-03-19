@@ -34,7 +34,7 @@ SOFTWARE.
 #include "minimod.h"
 
 void meth_freq(core_t* core);
-void mod_init();
+void init_mod();
 void destroy_mod();
 void print_stats(FILE * output_file);
 

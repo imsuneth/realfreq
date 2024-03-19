@@ -859,6 +859,58 @@ static void free_stats_map(khash_t(str)* stats_map){
     kh_destroy(str, stats_map);
 }
 
+void simple_meth_view(core_t* core){
+
+    print_meth_call_hdr();
+    khash_t(nr)* depth_map = kh_init(nr);
+    khash_t(nr)* n_skipped_map = kh_init(nr);
+    
+    bam1_t *record = bam_init1();
+    while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
+
+
+        const char *mm = get_mm_tag_ptr(record);
+        uint32_t ml_len;
+        uint8_t *ml = get_ml_tag(record, &ml_len);
+
+        uint32_t mods_len = 0;
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
+
+        bam_hdr_t *hdr = core->bam_hdr;
+
+        int * aln_pairs = get_aln(depth_map, hdr, record);
+
+        // print_aln_pairs(aln_pairs, record->core.l_qseq);
+
+        // fprintf(stderr, "\n\nread_id:%s\n", bam_get_qname(record));
+        // print_array(aln_pairs, record->core.l_qseq, 'i');
+
+        if(ml!=NULL){
+            if(ml_len==0){ // no mod probs, therefore no mods
+                ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
+            }
+
+            base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, depth_map, n_skipped_map, hdr, record);
+            uint32_t seq_len = record->core.l_qseq;
+
+            print_meths(bases, seq_len, depth_map, hdr, record, MOD_ALL);
+
+            free_bases(bases, seq_len);
+
+        }
+        
+        free(aln_pairs);
+        free_mod_tags(mod_tags, mods_len);
+        free(ml);
+
+    }
+    
+    free_depth_map(depth_map);
+    free_depth_map(n_skipped_map);
+    bam_destroy1(record);
+    return;
+}
+
 void meth_freq(core_t* core){
 
     bam1_t *record = bam_init1();
@@ -895,7 +947,7 @@ void meth_freq(core_t* core){
     return;
 }
 
-void mod_init(){
+void init_mod(){
     stats_map = kh_init(str);
     depth_map = kh_init(nr);
     n_skipped_map = kh_init(nr);

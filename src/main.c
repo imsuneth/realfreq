@@ -40,7 +40,7 @@ static const char * logfile = "realfreq_processed.log";
 
 void initialize() {
     init_logger(logfile);
-    mod_init();
+    init_mod();
 }
 
 void destroy() {
