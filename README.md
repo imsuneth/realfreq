@@ -47,7 +47,7 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 ./scripts/realfreq.sh -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -d /minknow/data/exp_001
 ```
 
-#### 04. Start sequencing run on Minknow
+#### 02. Start sequencing run on Minknow
 When <em>realfreq</em> finishes processing a new batch of reads, it writes the updated methylation frequencies data to <em>methfreq.tsv</em> file inside <em><exp_dir></em>.
 
 ## <em>realfreq</em> output
