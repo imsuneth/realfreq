@@ -135,7 +135,7 @@ pipeline() {
         echo $(date) "Starting pipeline for $blow5" >> $SCRIPT_LOG
         START_TIME=$(date)
         echo -e "$START_TIME\t$blow5" >> $PIPELINE_LOG_ATTEMPTED
-        $PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG || echo -e ""$(date)"\t$blow5" >> $PIPELINE_LOG_FAILED
+        ($PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG) || (echo -e "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED && continue)
         END_TIME=$(date)
         echo -e "$END_TIME\t$blow5" >> $PIPELINE_LOG_DONE
         echo -e "$blow5\t$START_TIME\t$END_TIME" >> $PIPELINE_LOG_START_END
