@@ -417,6 +417,11 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
     int * aligned_pairs = (int *)malloc(sizeof(int)*seq_len);
     MALLOC_CHK(aligned_pairs);
 
+    //fill the aligned_pairs array with -1
+    for(int i=0;i<seq_len;i++){
+        aligned_pairs[i] = -1;
+    }
+
     //fprintf(stderr,"n cigar: %d\n", n_cigar);
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
         uint32_t c = cigar[ci];
@@ -472,8 +477,6 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
                 }
                 aligned_pairs[read_pos] = start;
                 inc_depth(depth_map, tname, start, start, strand);
-            } else {
-                aligned_pairs[read_pos] = -1;
             }
 
             // increment
