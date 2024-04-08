@@ -45,3 +45,6 @@ Thumbs.db
 /htslib
 /scripts/realtime-p2s
 /temp
+
+# test related
+/test/tmp

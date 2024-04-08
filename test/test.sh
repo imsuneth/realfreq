@@ -27,13 +27,18 @@ echo_bams() {
     echo "test/example-ont-part2.bam"
 }
 
-mkdir -p temp || die "Failed to create temp directory"
+mkdir -p test/tmp || die "Creating the test/tmp directory failed"
+
+if [ ! -f test/tmp/genome_chr22.fa ]; then
+    wget  -N -O test/tmp/genome_chr22.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/chr22.fa.gz" || die "Downloading the genome chr22 failed"
+    gzip -d test/tmp/genome_chr22.fa.gz || die "Unzipping the genome chr22 failed"
+fi
 
 echo "Test 1"
-echo_bams | ex ./realfreq -o temp/example-ont-freq.tsv || die "Test 1 failed running realfreq"
-cat temp/example-ont-freq.tsv | tail -n +2 - | sort -n -k2,2 -k10,10 > temp/example-ont-freq-actual.tsv
-cat test/example-ont-freq.tsv | tail -n +2 - | sort -n -k2,2 -k10,10 > temp/example-ont-freq-expected.tsv
-diff -q temp/example-ont-freq-expected.tsv temp/example-ont-freq-actual.tsv || die "Test 1 failed"
+echo_bams | ex ./realfreq -r test/tmp/genome_chr22.fa -o test/tmp/test1.tsv -l test/tmp/test1_log.tsv || die "Test 1 failed running realfreq"
+sort -k1,1 -k2,2n test/expected/test1.tsv > test/tmp/test1.expected.sorted.tsv
+sort -k1,1 -k2,2n test/tmp/test1.tsv > test/tmp/test1.sorted.tsv
+diff test/tmp/test1.expected.sorted.tsv test/tmp/test1.sorted.tsv || die "Test 1: diff failed"
 
 
 echo "TESTS PASSED!"

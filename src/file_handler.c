@@ -34,7 +34,7 @@ SOFTWARE.
 #include "logger.h"
 #include "misc.h"
 #include "minimod.h"
-#include "mod.h"
+#include "meth.h"
 #include "error.h"
 
 static const char *output_tsv;
@@ -50,25 +50,10 @@ void write_output() {
         ERROR("could not open the output file %s", output_tsv);
         exit(EXIT_FAILURE);
     }
-    print_stats(output_fp);
+    print_stats(output_fp, 0);
     fclose(output_fp);
     return;
 }
-
-void read_files_from_stdin() {
-    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    while (1) {
-        int status = fscanf(stdin, "%s", filepath);
-        if (ferror(stdin) || feof(stdin)) {
-            break;
-        }
-        
-        read_file_contents(filepath);
-        
-    }
-    free(filepath);
-}
-
 
 void read_file_contents(char *filepath) {
 
@@ -93,4 +78,18 @@ void read_file_contents(char *filepath) {
     //free the core data structure
     free_core(core,opt);
     return;
+}
+
+void read_files_from_stdin() {
+    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
+    while (1) {
+        int status = fscanf(stdin, "%s", filepath);
+        if (ferror(stdin) || feof(stdin)) {
+            break;
+        }
+        
+        read_file_contents(filepath);
+        
+    }
+    free(filepath);
 }

@@ -33,14 +33,16 @@ SOFTWARE.
 #include <stdlib.h>
 #include "file_handler.h"
 #include "logger.h"
-#include "mod.h"
+#include "meth.h"
 #include "error.h"
 
-static const char * logfile = "realfreq_processed.log";
+static char * logfile = "realfreq_processed.log";
+static char * reffile = NULL;
+static char * outputfile = NULL;
 
 void initialize() {
     init_logger(logfile);
-    init_mod();
+    init_mod(reffile);
 }
 
 void destroy() {
@@ -50,25 +52,34 @@ void destroy() {
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "yo:l:";
+    const char* optstring = "yr:o:l:";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
+            case 'r':
+                reffile = optarg;
+                break;
             case 'o':
-                set_output_file(optarg);
+                outputfile = optarg;
+                set_output_file(outputfile);
                 break;
             case 'l':
-                logfile = (const char *)malloc(sizeof(char)*strlen(optarg));
-                MALLOC_CHK(logfile);
-                strcpy(logfile, optarg);
+                logfile = optarg;
                 break;
             case 'y':
                 clear_log(true);
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-o output_file] [-l processed_files_log]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-r reference_file] [-o output_file] [-l processed_files_log]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
+    }
+
+    fprintf(stderr, "Reference file: %s\n", reffile);
+
+    if (reffile == NULL) {
+        fprintf(stderr, "Reference file is not provided\n");
+        exit(EXIT_FAILURE);
     }
 
     initialize();

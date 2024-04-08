@@ -1,10 +1,10 @@
 /**
- * @file mod.h
- * @brief modification tags
+ * @file ref.h
+ * @brief reference genome loading header
 
 MIT License
 
-Copyright (c) 2023 Hasindu Gamaarachchi (hasindu@unsw.edu.au)
+Copyright (c) 2024 Suneth Samarasinghe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,13 +27,19 @@ SOFTWARE.
 
 ******************************************************************************/
 
-#ifndef PULSE_H
-#define PULSE_H
+#ifndef REF_H
+#define REF_H
 
-#include "minimod.h"
+#include <stdint.h>
 
-uint16_t *get_meth_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
-const char *get_mm_tag_ptr(bam1_t *record);
-uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
+typedef struct {
+    int32_t ref_seq_length;
+    char * forward;
+} ref_t;
+
+void load_ref(const char * genome);
+int has_chr(const char * chr);
+void destroy_ref();
+ref_t * get_ref(const char * chr);
 
 #endif
