@@ -107,7 +107,6 @@ BLUECRAB=blue-crab
 BUTTERY_EEL=buttery-eel
 MINIMAP2=minimap2
 SAMTOOLS=samtools
-F5C=f5c
 REALFREQ=realfreq
 INOTIFYWAIT=inotifywait
 
@@ -117,7 +116,6 @@ command -v $BLUECRAB &> /dev/null || die $RED"$BLUECRAB command not found."$NC
 command -v $BUTTERY_EEL &> /dev/null || die $RED"$BUTTERY_EEL command not found."$NC
 command -v $MINIMAP2 &> /dev/null || die $RED"$MINIMAP2 command not found."$NC
 command -v $SAMTOOLS &> /dev/null || die $RED"$SAMTOOLS command not found."$NC
-command -v $F5C &> /dev/null || die $RED"$F5C command not found."$NC
 command -v $REALFREQ &> /dev/null || die $RED"$REALFREQ command not found."$NC
 command -v $BLUECRAB --version &> /dev/null || die $RED"$BLUECRAB command not found."$NC
 
