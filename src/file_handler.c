@@ -39,9 +39,11 @@ SOFTWARE.
 
 static const char *output_tsv;
 static log_entry_t log_entry;
+static int bedmethyl;
 
-void set_output_file(const char *output_file) {
+void set_output_file(const char *output_file, int is_bedmethyl) {
     output_tsv = output_file;
+    bedmethyl = is_bedmethyl;
 }
 
 
@@ -51,7 +53,7 @@ void write_output() {
         ERROR("could not open the output file %s", output_tsv);
         exit(EXIT_FAILURE);
     }
-    print_stats(output_fp, 0);
+    print_stats(output_fp, bedmethyl);
     fclose(output_fp);
     return;
 }

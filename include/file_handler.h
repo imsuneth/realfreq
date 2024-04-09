@@ -41,6 +41,6 @@ SOFTWARE.
 #include <htslib/sam.h>
 
 void read_files_from_stdin();
-void set_output_file(const char *filepath);
+void set_output_file(const char *filepath, int is_bedmethyl);
 
 #endif /* FILE_HANDLER_H */

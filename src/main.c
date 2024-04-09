@@ -39,6 +39,7 @@ SOFTWARE.
 static char * logfile = "realfreq_processed.log";
 static char * reffile = NULL;
 static char * outputfile = NULL;
+static int is_bedmethyl = 0;
 
 void initialize() {
     init_logger(logfile);
@@ -52,7 +53,7 @@ void destroy() {
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "yr:o:l:";
+    const char* optstring = "yr:o:l:b";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
@@ -61,7 +62,9 @@ int main(int argc, char* argv[]) {
                 break;
             case 'o':
                 outputfile = optarg;
-                set_output_file(outputfile);
+                break;
+            case 'b':
+                is_bedmethyl = 1;
                 break;
             case 'l':
                 logfile = optarg;
@@ -79,6 +82,13 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Reference file is not provided\n");
         exit(EXIT_FAILURE);
     }
+
+    if (outputfile == NULL) {
+        fprintf(stderr, "Output file is not provided\n");
+        exit(EXIT_FAILURE);
+    }
+
+    set_output_file(outputfile, is_bedmethyl);
 
     initialize();
     read_files_from_stdin();
