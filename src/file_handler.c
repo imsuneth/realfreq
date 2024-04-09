@@ -38,6 +38,7 @@ SOFTWARE.
 #include "error.h"
 
 static const char *output_tsv;
+static log_entry_t log_entry;
 
 void set_output_file(const char *output_file) {
     output_tsv = output_file;
@@ -73,7 +74,14 @@ void read_file_contents(char *filepath) {
 
     double realtime2 = realtime();
 
-    log_file_processed(filepath, realtime1 - realtime0, realtime2 - realtime1);
+    int stats_len = get_stats_len();
+    
+    log_entry.bamfile = filepath;
+    log_entry.realtime_meth_freq = realtime1 - realtime0;
+    log_entry.realtime_write_output = realtime2 - realtime1;
+    log_entry.stats_len = stats_len;
+    
+    log_file_processed(&log_entry);
 
     //free the core data structure
     free_core(core,opt);

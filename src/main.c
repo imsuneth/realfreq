@@ -75,8 +75,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    fprintf(stderr, "Reference file: %s\n", reffile);
-
     if (reffile == NULL) {
         fprintf(stderr, "Reference file is not provided\n");
         exit(EXIT_FAILURE);

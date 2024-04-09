@@ -854,3 +854,7 @@ void print_stats(FILE * output_file, int is_bedmethyl){
 
     free(stats);
 }
+
+int get_stats_len(){
+    return kh_size(stats_map);
+}
