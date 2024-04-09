@@ -193,4 +193,4 @@ else
     fi
 fi
 
-$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag
+$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag
