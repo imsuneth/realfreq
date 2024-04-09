@@ -20,9 +20,10 @@ Make sure to run ```source ~/.bashrc``` in order to use <em>realfreq</em> on alr
 ### Run <em>realfreq</em> on a Minknow experiment directory
 #### 01. Execute the following command on a terminal **before** starting sequencing run on Minknow.
 ```bash
-./scripts/realfreq.sh [-h] [-y] -g <guppy_bin> -r <reference.fasta> -i <reference_index> -m <model> -d <monitor_dir>
+./scripts/realfreq.sh [-h] [-y] [-b] -g <guppy_bin> -r <reference.fasta> -i <reference_index> -m <model> -d <monitor_dir>
   -h  Show help message
   -y  Say yes to all prompts
+  -b  Bedmethyl output
   -g  Path to guppy binary
   -r  Path to reference fasta
   -i  Path to reference index

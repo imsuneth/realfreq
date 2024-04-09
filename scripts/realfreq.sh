@@ -19,9 +19,10 @@ die() {
 }
 
 usage() {
-    echo "Usage: $0 [-h] [-y] -g <guppy_bin> -r <reference> -i <reference_index> -m <model> -d <monitor_dir>"
+    echo "Usage: $0 [-h] [-y] [-b] -g <guppy_bin> -r <reference> -i <reference_index> -m <model> -d <monitor_dir>"
     echo "  -h  Show help message"
     echo "  -y  Say yes to all prompts"
+    echo "  -b  Bedmethyl output"
     echo "  -g  Path to guppy binary"
     echo "  -r  Path to reference fasta"
     echo "  -i  Path to reference index"
@@ -52,8 +53,9 @@ reference_set=false
 reference_index_set=false
 model_set=false
 monitor_dir_set=false
+bedmethyl_out=false
 
-while getopts "hyg:r:i:m:d:" opt; do
+while getopts "hybg:r:i:m:d:" opt; do
     case $opt in
         d) monitor_dir_set=true; MONITOR_DIR=$OPTARG;;
         g) guppy_bin_set=true; GUPPY_BIN=$OPTARG;;
@@ -62,6 +64,7 @@ while getopts "hyg:r:i:m:d:" opt; do
         m) model_set=true; MODEL=$OPTARG;;
         h) usage; exit 0;;
         y) say_yes=true;;
+        b) bedmethyl_out=true;;
         \?) error "Invalid option: -$OPTARG" >&2
             exit 1;;
         :) error "Option -$OPTARG requires an argument." >&2
@@ -89,6 +92,11 @@ fi
 yes_flag=""
 if [ $say_yes=true ]; then
     yes_flag="-y"
+fi
+
+bed_flag=""
+if [ $bedmethyl_out = true ]; then
+    bed_flag="-b"
 fi
 
 SCRIPT_PATH="$( cd "$(dirname "$0")" ; pwd -P )" # Script's current path
@@ -193,4 +201,4 @@ else
     fi
 fi
 
-$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag
+$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag $bed_flag
