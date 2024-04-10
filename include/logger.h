@@ -39,9 +39,6 @@ typedef struct {
     int stats_len;
 } log_entry_t;
 
-void init_logger(const char *filepath);
-void destroy_logger();
-void clear_log(bool clear);
 void log_file_processed(log_entry_t *entry);
 
 #endif /* LOGGER_H */

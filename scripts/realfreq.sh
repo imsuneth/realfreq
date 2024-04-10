@@ -175,8 +175,8 @@ catch_bam() {
     done
 }
 
-REALFREQ_PROCESSED_LOG=$MONITOR_DIR/realfreq_processed.log
-SCRIPT_LOG=$MONITOR_DIR/realfreq.log
+REALFREQ_PROCESSED_LOG=$MONITOR_DIR/realfreq.log
+SCRIPT_LOG=$MONITOR_DIR/realfreq_script.log
 PIPELINE_LOG_ATTEMPTED=$MONITOR_DIR/realfreq_pipeline_attempted.log
 PIPELINE_LOG_DONE=$MONITOR_DIR/realfreq_pipeline_done.log
 PIPELINE_LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
@@ -201,4 +201,4 @@ else
     fi
 fi
 
-$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv -l $REALFREQ_PROCESSED_LOG $yes_flag $bed_flag
+$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv $yes_flag $bed_flag

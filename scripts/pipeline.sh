@@ -3,6 +3,8 @@ set -x
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+LOG=realfreq_pipline.log
+
 info() {
     echo -e $GREEN"[$0] $1"$NC
 }
@@ -14,6 +16,10 @@ error() {
 die() {
 	error "$1"
 	exit 1
+}
+
+log() {
+    echo -e "read:$read, step: $1, status: $2, start: $3, end: $4" >> $LOG
 }
 
 usage() {
@@ -98,11 +104,22 @@ fastq="$OUT_DIR/$read.remora.fastq"
 unsortedbam="$OUT_DIR/$read.remora.unsorted.bam"
 bam="$OUT_DIR/$read.remora.bam"
 
-/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam --device cuda:all || die "$BLOW5 buttery-eel failed"
-/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || die "$BLOW5 samtools failed"
-/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || die "$BLOW5 minimap2 failed" 
-/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || die "$BLOW5 mapping failed"
-/usr/bin/time -v samtools index -@ 36 $bam || die "$BLOW5 indexing failed"
+t0=$(date)
+/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam --device cuda:all || echo "read:$read, step: eel, status: failed, start: $t0, end: $t1"
+t1=$(date)
+echo "read:$read, step: eel, status: success, start: $t0, end: $t1"
+/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || echo "read:$read, step: samtools, status: failed, start: $t1, end: $t2"
+t2=$(date)
+echo "read:$read, step: samtools-fastq, status: success, start: $t1, end: $t2"
+/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || echo "read:$read, step: minimap2, status: failed, start: $t2, end: $t3"
+t3=$(date)
+echo "read:$read, step: minimap2, status: success, start: $t2, end: $t3"
+/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || echo "read:$read, step: samtools, status: failed, start: $t3, end: $t4"
+t4=$(date)
+echo "read:$read, step: samtools-sort, status: success, start: $t3, end: $t4"
+/usr/bin/time -v samtools index -@ 36 $bam || echo "read:$read, step: samtools, status: failed, start: $t4, end: $t5"
+t5=$(date)
+echo "read:$read, step: samtools-index, status: success, start: $t4, end: $t5"
 
 echo "Finished. bam-file: $bam"
 exit 0

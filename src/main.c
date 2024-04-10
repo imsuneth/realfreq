@@ -42,18 +42,17 @@ static char * outputfile = NULL;
 static int is_bedmethyl = 0;
 
 void initialize() {
-    init_logger(logfile);
     init_mod(reffile);
+    set_output_file(outputfile, is_bedmethyl);
 }
 
 void destroy() {
     destroy_mod();
-    destroy_logger();
 }
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "yr:o:l:b";
+    const char* optstring = "yr:o:b";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
@@ -66,14 +65,11 @@ int main(int argc, char* argv[]) {
             case 'b':
                 is_bedmethyl = 1;
                 break;
-            case 'l':
-                logfile = optarg;
-                break;
             case 'y':
                 clear_log(true);
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-r reference_file] [-o output_file] [-l processed_files_log]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-r reference_file] [-o output_file]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -87,8 +83,6 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Output file is not provided\n");
         exit(EXIT_FAILURE);
     }
-
-    set_output_file(outputfile, is_bedmethyl);
 
     initialize();
     read_files_from_stdin();
