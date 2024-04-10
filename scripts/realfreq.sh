@@ -102,6 +102,7 @@ fi
 PIPELINE=$SCRIPT_PATH/pipeline.sh
 
 mkdir -p $MONITOR_DIR
+chmod 777 $MONITOR_DIR
 
 SLOW5TOOLS=slow5tools
 BLUECRAB=blue-crab

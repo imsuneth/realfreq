@@ -19,7 +19,10 @@ die() {
 }
 
 log() {
-    echo -e "read:$read, step: $1, status: $2, start: $3, end: $4" >> $LOG
+    echo -e "read:$1, step: $2, status: $3, start: $4, end: $5" >> $LOG
+    if [ $2 = "failed" ]; then
+        exit 1
+    fi
 }
 
 usage() {
@@ -103,7 +106,7 @@ command -v $BUTTERY_EEL &> /dev/null || die $RED"$BUTTERY_EEL command not found.
 command -v $MINIMAP2 &> /dev/null || die $RED"$MINIMAP2 command not found."$NC
 command -v $SAMTOOLS &> /dev/null || die $RED"$SAMTOOLS command not found."$NC
 
-EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:0"
+EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all"
 
 read=$(basename -s .blow5 $BLOW5)
 unalsam="$OUT_DIR/$read.remora.unaln.sam"
@@ -112,21 +115,26 @@ unsortedbam="$OUT_DIR/$read.remora.unsorted.bam"
 bam="$OUT_DIR/$read.remora.bam"
 
 t0=$(date)
-/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam || echo -e "read:$read\tstep: eel\tstatus: failed\tstart: $t0\tend: $(date)" >> $LOG && die "Eel failed"
+/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam || log $read "failed" "$t0" $(date)
 t1=$(date)
-echo -e "read:$read\tstep: eel\tstatus: success\tstart: $t0\tend: $t1" >> $LOG
-/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t1\tend: $(date)" >> $LOG
+log $read "eel" "success" "$t0" "$t1"
+
+/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || log $read "failed" "$t1" $(date)
 t2=$(date)
-echo -e "read:$read\tstep: samtools-fastq\tstatus: success\tstart: $t1\tend: $t2" >> $LOG
-/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || echo -e "read:$read\tstep: minimap2\tstatus: failed\tstart: $t2\tend: $(date)" >> $LOG && die "Minimap2 failed"
+log $read "samtools-fastq" "success" "$t1" "$t2"
+
+/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || log $read "failed" "$t2" $(date)
 t3=$(date)
-echo -e "read:$read\tstep: minimap2\tstatus: success\tstart: $t2\tend: $t3" >> $LOG
-/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t3\tend: $(date)" >> $LOG && die "Samtools sort failed"
+log $read "minimap2" "success" "$t2" "$t3"
+
+/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || log $read "failed" "$t3" $(date)
 t4=$(date)
-echo -e "read:$read\tstep: samtools-sort\tstatus: success\tstart: $t3\tend: $t4" >> $LOG
-/usr/bin/time -v samtools index -@ 36 $bam || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t4\tend: $(date)" >> $LOG && die "Samtools index failed"
+log $read "samtools-sort" "success" "$t3" "$t4"
+
+/usr/bin/time -v samtools index -@ 36 $bam || log $read "failed" "$t4" $(date)
 t5=$(date)
-echo -e "read:$read\tstep: samtools-index\tstatus: success\tstart: $t4\tend: $t5" >> $LOG
+log $read "samtools-index" "success" "$t4" "$t5"
+
 
 echo "Finished. bam-file: $bam"
 exit 0
