@@ -36,7 +36,6 @@ SOFTWARE.
 #include "meth.h"
 #include "error.h"
 
-static char * logfile = "realfreq_processed.log";
 static char * reffile = NULL;
 static char * outputfile = NULL;
 static int is_bedmethyl = 0;
@@ -52,7 +51,7 @@ void destroy() {
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "yr:o:b";
+    const char* optstring = "r:o:b";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
@@ -64,9 +63,6 @@ int main(int argc, char* argv[]) {
                 break;
             case 'b':
                 is_bedmethyl = 1;
-                break;
-            case 'y':
-                clear_log(true);
                 break;
             default:
                 fprintf(stderr, "Usage: %s [-r reference_file] [-o output_file]\n", argv[0]);

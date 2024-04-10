@@ -89,11 +89,6 @@ if [ $model_set = false ]; then
     error "model is not set."; usage; exit 1
 fi
 
-yes_flag=""
-if [ $say_yes=true ]; then
-    yes_flag="-y"
-fi
-
 bed_flag=""
 if [ $bedmethyl_out = true ]; then
     bed_flag="-b"
@@ -183,6 +178,7 @@ PIPELINE_LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
 PIPELINE_LOG_FAILED=$MONITOR_DIR/realfreq_pipeline_failed.log
 
 clear_logs(){
+    test -e $REALFREQ_PROCESSED_LOG && rm $REALFREQ_PROCESSED_LOG # Empty log file
     test -e $SCRIPT_LOG && rm $SCRIPT_LOG # Empty log file
     test -e $PIPELINE_LOG_ATTEMPTED && rm $PIPELINE_LOG_ATTEMPTED # Empty log file
     test -e $PIPELINE_LOG_DONE && rm $PIPELINE_LOG_DONE # Empty log file
@@ -201,4 +197,4 @@ else
     fi
 fi
 
-$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv $yes_flag $bed_flag
+$REALP2S -m $MONITOR_DIR $yes_flag | catch_blow5 | pipeline | catch_bam | $REALFREQ -r $REF -o $MONITOR_DIR/methfreq.tsv $bed_flag >> $REALFREQ_PROCESSED_LOG
