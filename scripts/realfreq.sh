@@ -102,8 +102,6 @@ fi
 PIPELINE=$SCRIPT_PATH/pipeline.sh
 
 mkdir -p $MONITOR_DIR
-mkdir -p $MONITOR_DIR/sam
-chown -R $USER $MONITOR_DIR
 
 SLOW5TOOLS=slow5tools
 BLUECRAB=blue-crab
@@ -133,10 +131,13 @@ export REALP2S_AUTO=0
 
 pipeline() {
     while read blow5; do
+        blow5dir=$(dirname $blow5)
+        blow5parent=$(basename $blow5dir)
+        mkdir -p $blow5parent/sam
         echo $(date) "Starting pipeline for $blow5" >> $SCRIPT_LOG
         START_TIME=$(date)
         echo -e "$START_TIME\t$blow5" >> $PIPELINE_LOG_ATTEMPTED
-        ($PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $MONITOR_DIR/sam 2>> $SCRIPT_LOG) || (echo -e "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED && continue)
+        ($PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $blow5parent/sam -l $PIPELINE_LOG 2>> $SCRIPT_LOG) || echo -e "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED && continue
         END_TIME=$(date)
         echo -e "$END_TIME\t$blow5" >> $PIPELINE_LOG_DONE
         echo -e "$blow5\t$START_TIME\t$END_TIME" >> $PIPELINE_LOG_START_END
@@ -172,6 +173,7 @@ catch_bam() {
 
 REALFREQ_PROCESSED_LOG=$MONITOR_DIR/realfreq.log
 SCRIPT_LOG=$MONITOR_DIR/realfreq_script.log
+PIPELINE_LOG=$MONITOR_DIR/realfreq_pipeline.log
 PIPELINE_LOG_ATTEMPTED=$MONITOR_DIR/realfreq_pipeline_attempted.log
 PIPELINE_LOG_DONE=$MONITOR_DIR/realfreq_pipeline_done.log
 PIPELINE_LOG_START_END=$MONITOR_DIR/realfreq_pipeline_start_end_trace.log
@@ -180,6 +182,7 @@ PIPELINE_LOG_FAILED=$MONITOR_DIR/realfreq_pipeline_failed.log
 clear_logs(){
     test -e $REALFREQ_PROCESSED_LOG && rm $REALFREQ_PROCESSED_LOG # Empty log file
     test -e $SCRIPT_LOG && rm $SCRIPT_LOG # Empty log file
+    test -e $PIPELINE_LOG && rm $PIPELINE_LOG # Empty log file
     test -e $PIPELINE_LOG_ATTEMPTED && rm $PIPELINE_LOG_ATTEMPTED # Empty log file
     test -e $PIPELINE_LOG_DONE && rm $PIPELINE_LOG_DONE # Empty log file
     test -e $PIPELINE_LOG_START_END && rm $PIPELINE_LOG_START_END # Empty log file

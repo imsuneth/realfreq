@@ -33,6 +33,7 @@ usage() {
     echo "  -r  Path to reference fasta"
     echo "  -i  Path to reference index"
     echo "  -m  Model name"
+    echo "  -l  Pipeline log file"
     echo
     ) >&2
 }
@@ -43,8 +44,9 @@ guppy_bin_set=false
 reference_set=false
 reference_index_set=false
 model_set=false
+pipeline_log=false
 
-while getopts "hyb:o:g:r:i:m:" opt; do
+while getopts "hyb:o:g:r:i:m:l:" opt; do
     case $opt in
         b) blow5_file_set=true; BLOW5=$OPTARG;;
         o) out_dir_set=true; OUT_DIR=$OPTARG;;
@@ -52,6 +54,7 @@ while getopts "hyb:o:g:r:i:m:" opt; do
         r) reference_set=true; REF=$OPTARG;;
         i) reference_index_set=true; REFIDX=$OPTARG;;
         m) model_set=true; MODEL=$OPTARG;;
+        l) pipeline_log=true; LOG=$OPTARG;;
         h) usage; exit 0;;
         \?) error "Invalid option: -$OPTARG" >&2
             exit 1;;
@@ -85,6 +88,10 @@ if [ $model_set = false ]; then
     error "model is not set."; usage; exit 1
 fi
 
+if [ $pipeline_log = false ]; then
+    error "pipeline log file is not set. Using default log file: $LOG"
+fi
+
 mkdir -p $OUT_DIR
 chown -R $USER $OUT_DIR
 
@@ -96,7 +103,7 @@ command -v $BUTTERY_EEL &> /dev/null || die $RED"$BUTTERY_EEL command not found.
 command -v $MINIMAP2 &> /dev/null || die $RED"$MINIMAP2 command not found."$NC
 command -v $SAMTOOLS &> /dev/null || die $RED"$SAMTOOLS command not found."$NC
 
-EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp"
+EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:0"
 
 read=$(basename -s .blow5 $BLOW5)
 unalsam="$OUT_DIR/$read.remora.unaln.sam"
@@ -105,21 +112,21 @@ unsortedbam="$OUT_DIR/$read.remora.unsorted.bam"
 bam="$OUT_DIR/$read.remora.bam"
 
 t0=$(date)
-/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam --device cuda:all || echo "read:$read, step: eel, status: failed, start: $t0, end: $t1"
+/usr/bin/time -v $EEL --call_mods --config $MODEL -i $BLOW5 -o $unalsam || echo -e "read:$read\tstep: eel\tstatus: failed\tstart: $t0\tend: $(date)" >> $LOG && die "Eel failed"
 t1=$(date)
-echo "read:$read, step: eel, status: success, start: $t0, end: $t1"
-/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || echo "read:$read, step: samtools, status: failed, start: $t1, end: $t2"
+echo -e "read:$read\tstep: eel\tstatus: success\tstart: $t0\tend: $t1" >> $LOG
+/usr/bin/time -v samtools fastq -@ 36 -TMM,ML $unalsam > $fastq || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t1\tend: $(date)" >> $LOG
 t2=$(date)
-echo "read:$read, step: samtools-fastq, status: success, start: $t1, end: $t2"
-/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || echo "read:$read, step: minimap2, status: failed, start: $t2, end: $t3"
+echo -e "read:$read\tstep: samtools-fastq\tstatus: success\tstart: $t1\tend: $t2" >> $LOG
+/usr/bin/time -v minimap2 -t 36 -x map-ont --sam-hit-only -Y -a -y --secondary=no $REFIDX $fastq > $unsortedbam || echo -e "read:$read\tstep: minimap2\tstatus: failed\tstart: $t2\tend: $(date)" >> $LOG && die "Minimap2 failed"
 t3=$(date)
-echo "read:$read, step: minimap2, status: success, start: $t2, end: $t3"
-/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || echo "read:$read, step: samtools, status: failed, start: $t3, end: $t4"
+echo -e "read:$read\tstep: minimap2\tstatus: success\tstart: $t2\tend: $t3" >> $LOG
+/usr/bin/time -v samtools sort -@ 36 $unsortedbam > $bam || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t3\tend: $(date)" >> $LOG && die "Samtools sort failed"
 t4=$(date)
-echo "read:$read, step: samtools-sort, status: success, start: $t3, end: $t4"
-/usr/bin/time -v samtools index -@ 36 $bam || echo "read:$read, step: samtools, status: failed, start: $t4, end: $t5"
+echo -e "read:$read\tstep: samtools-sort\tstatus: success\tstart: $t3\tend: $t4" >> $LOG
+/usr/bin/time -v samtools index -@ 36 $bam || echo -e "read:$read\tstep: samtools\tstatus: failed\tstart: $t4\tend: $(date)" >> $LOG && die "Samtools index failed"
 t5=$(date)
-echo "read:$read, step: samtools-index, status: success, start: $t4, end: $t5"
+echo -e "read:$read\tstep: samtools-index\tstatus: success\tstart: $t4\tend: $t5" >> $LOG
 
 echo "Finished. bam-file: $bam"
 exit 0
