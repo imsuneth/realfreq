@@ -54,8 +54,9 @@ reference_index_set=false
 model_set=false
 monitor_dir_set=false
 bedmethyl_out=false
+output_dir_set=false
 
-while getopts "hybg:r:i:m:d:" opt; do
+while getopts "hybg:r:i:m:d:o:" opt; do
     case $opt in
         d) monitor_dir_set=true; MONITOR_DIR=$OPTARG;;
         g) guppy_bin_set=true; GUPPY_BIN=$OPTARG;;
@@ -65,6 +66,7 @@ while getopts "hybg:r:i:m:d:" opt; do
         h) usage; exit 0;;
         y) say_yes=true;;
         b) bedmethyl_out=true;;
+        o) output_dir_set=true; OUTPUT_DIR=$OPTARG;;
         \?) error "Invalid option: -$OPTARG" >&2
             exit 1;;
         :) error "Option -$OPTARG requires an argument." >&2
@@ -72,6 +74,10 @@ while getopts "hybg:r:i:m:d:" opt; do
         *) usage; exit 1;;
     esac
 done
+
+if [ $monitor_dir_set = false ]; then
+    error "monitor_dir is not set."; usage; exit 1
+fi
 
 if [ $guppy_bin_set = false ]; then
     error "guppy_bin is not set."; usage; exit 1
@@ -89,6 +95,11 @@ if [ $model_set = false ]; then
     error "model is not set."; usage; exit 1
 fi
 
+if [ $output_dir_set = false ]; then
+    echo "Output directory not set. Using monitor directory ($MONITOR_DIR)."
+    OUTPUT_DIR=$MONITOR_DIR
+fi
+
 bed_flag=""
 if [ $bedmethyl_out = true ]; then
     bed_flag="-b"
@@ -99,10 +110,20 @@ if [ ! -f "$SCRIPT_PATH/pipeline.sh" ]; then
     info "pipeline.sh not found."
     exit 1
 fi
-PIPELINE=$SCRIPT_PATH/pipeline.sh
+PIPELINE_SCRIPT=$SCRIPT_PATH/pipeline.sh
 
-mkdir -p $MONITOR_DIR
-chmod 777 $MONITOR_DIR
+if [ ! -d $OUTPUT_DIR ]; then
+    echo "$OUTPUT_DIR not found. Creating $OUTPUT_DIR"
+    mkdir -p $OUTPUT_DIR
+    chmod 777 $OUTPUT_DIR || die "Failed to create $OUTPUT_DIR"
+fi
+
+if [ ! -w $OUTPUT_DIR ]; then
+    error "$OUTPUT_DIR is not writable. Make it writable (chmod 777 $MONITOR_DIR)"
+    exit 1
+fi
+
+mkdir -p $OUTPUT_DIR/sam || die "Failed to create $OUTPUT_DIR/sam"
 
 SLOW5TOOLS=slow5tools
 BLUECRAB=blue-crab
@@ -132,13 +153,10 @@ export REALP2S_AUTO=0
 
 pipeline() {
     while read blow5; do
-        blow5dir=$(dirname $blow5)
-        blow5parent=$(basename $blow5dir)
-        mkdir -p $blow5parent/sam
         echo $(date) "Starting pipeline for $blow5" >> $SCRIPT_LOG
         START_TIME=$(date)
         echo -e "$START_TIME\t$blow5" >> $PIPELINE_LOG_ATTEMPTED
-        ($PIPELINE -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $blow5parent/sam -l $PIPELINE_LOG 2>> $SCRIPT_LOG) || echo -e "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED && continue
+        ($PIPELINE_SCRIPT -b $blow5 -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL -o $OUTPUT_DIR/sam -l $PIPELINE_LOG 2>> $SCRIPT_LOG) || echo -e "$(date)\t$blow5" >> $PIPELINE_LOG_FAILED && continue
         END_TIME=$(date)
         echo -e "$END_TIME\t$blow5" >> $PIPELINE_LOG_DONE
         echo -e "$blow5\t$START_TIME\t$END_TIME" >> $PIPELINE_LOG_START_END
