@@ -32,5 +32,6 @@ SOFTWARE.
 
 void log_file_processed(log_entry_t *log_entry) {
     fprintf(stdout, "%s\t%.3f sec\t%.3f sec\t%d entries\n", log_entry->bamfile, log_entry->realtime_meth_freq, log_entry->realtime_write_output, log_entry->stats_len);
+    fflush(stdout);
 }
 
