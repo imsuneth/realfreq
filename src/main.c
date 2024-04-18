@@ -39,19 +39,30 @@ SOFTWARE.
 static char * reffile = NULL;
 static char * outputfile = NULL;
 static int is_bedmethyl = 0;
+static int is_resuming = 0;
+static char * dumpfile = NULL;
 
 void initialize() {
-    init_mod(reffile);
+    init_meth(reffile, dumpfile, is_resuming);
     set_output_file(outputfile, is_bedmethyl);
 }
 
 void destroy() {
-    destroy_mod();
+    destroy_meth();
+}
+
+void print_usage(FILE * fp) {
+    fprintf(fp, "Usage: realfreq [options]\n");
+    fprintf(fp, "Options:\n");
+    fprintf(fp, "  -r, --reference FILE    reference file\n");
+    fprintf(fp, "  -o, --output FILE       methylation frequency output file\n");
+    fprintf(fp, "  -b, --bedmethyl         output in bedMethyl format\n");
+    fprintf(fp, "  -s, --resume DUMP_FILE  resume from a dump file\n");
 }
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "r:o:b";
+    const char* optstring = "r:o:b:s";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
@@ -64,8 +75,11 @@ int main(int argc, char* argv[]) {
             case 'b':
                 is_bedmethyl = 1;
                 break;
+            case 's':
+                is_resuming = 1;
+                dumpfile = optarg;
             default:
-                fprintf(stderr, "Usage: %s [-r reference_file] [-o output_file]\n", argv[0]);
+                print_usage(stderr);
                 exit(EXIT_FAILURE);
         }
     }
@@ -77,6 +91,11 @@ int main(int argc, char* argv[]) {
 
     if (outputfile == NULL) {
         fprintf(stderr, "Output file is not provided\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(is_resuming && dumpfile == NULL){
+        fprintf(stderr, "Resuming but dump file is not provided\n");
         exit(EXIT_FAILURE);
     }
 

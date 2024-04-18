@@ -53,6 +53,7 @@ void write_output() {
         ERROR("could not open the output file %s", output_tsv);
         exit(EXIT_FAILURE);
     }
+    dump_stats_map(output_tsv);
     print_stats(output_fp, bedmethyl);
     fclose(output_fp);
     return;

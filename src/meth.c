@@ -831,12 +831,89 @@ void meth_freq(core_t* core){
     return;
 }
 
-void init_mod(const char * reffile){
+void dump_stats_map(const char * dump_file){
+    FILE *fp = fopen(dump_file, "wb");
+    if (fp == NULL) {
+        ERROR("Cannot open dump file %s\n", dump_file);
+        exit(EXIT_FAILURE);
+    }
+
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t * stat = kh_value(stats_map, k);
+            int chrom_len = strlen(stat->chrom);
+            ASSERT_MSG(fwrite(&chrom_len, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(stat->chrom, sizeof(char), chrom_len+1, fp)==chrom_len+1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->start, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->end, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->depth, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->n_mod, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->n_called, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->n_skipped, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->freq, sizeof(double), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->mod_code, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->mod_strand, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->ref_base, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            ASSERT_MSG(fwrite(&stat->is_aln_cpg, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+
+        }
+    }
+
+    fclose(fp);
+}
+
+void load_stats_map(const char * dump_file){
+    FILE *fp = fopen(dump_file, "rb");
+    if (fp == NULL) {
+        ERROR("Cannot open dump file %s\n", dump_file);
+        exit(EXIT_FAILURE);
+    }
+
+    stat_t * stat = (stat_t *)malloc(sizeof(stat_t));
+    MALLOC_CHK(stat);
+    
+    while (1) {
+        
+        int chrom_len;
+        ASSERT_MSG(fread(&chrom_len, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        if(feof(fp)){
+            break;
+        }
+        
+        stat->chrom = (char *)malloc((chrom_len+1)*sizeof(char));
+        MALLOC_CHK(stat->chrom);
+        ASSERT_MSG(fread(stat->chrom, sizeof(char), chrom_len+1, fp)==chrom_len+1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->start, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->end, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->depth, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->n_mod, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->n_called, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->n_skipped, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->freq, sizeof(double), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->mod_code, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->mod_strand, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->ref_base, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        ASSERT_MSG(fread(&stat->is_aln_cpg, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+
+        char *key = make_key(stat->chrom, stat->start, stat->end, stat->mod_code, stat->mod_strand);
+        int ret;
+        khiter_t k = kh_put(str, stats_map, key, &ret);
+        kh_value(stats_map, k) = stat;
+    }
+
+    fclose(fp);
+}
+
+void init_meth(const char * reffile, const char * dump_file, int is_resuming){
     stats_map = kh_init(str);
+    if(is_resuming){
+        load_stats_map(dump_file);
+    }
+
     load_ref(reffile);
 }
 
-void destroy_mod(){
+void destroy_meth(){
     free_stats_map(stats_map);
     destroy_ref();
 }
