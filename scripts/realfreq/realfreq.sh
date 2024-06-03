@@ -6,7 +6,7 @@
 #+    ${SCRIPT_NAME} -m [directory] -g [guppy_bin] -f [reference] -x [reference_index] -e [model] [options ...]
 #%
 #% DESCRIPTION
-#%    Runs realtime POD5 to SLOW5 conversion of for a given sequencing directory.
+#%    Realtime methylation frequency computation of a given sequencing directory.
 #%
 #% OPTIONS
 #%
@@ -25,9 +25,9 @@
 #% ADVANCED/DEBUGGING OPTIONS
 #%
 #%    -n                                            Specify non-realtime analysis
-#%    -d [filename]                                 Specify custom location for the list of attempted files [default: monitor_dir/realtime_p2s_attempted_list.log]
-#%    -l [filename]                                 Specify custom log filename [default: monitor_dir/realtime_p2s.log]
-#%    -f [file]                                     Specify location for the list of files that failed to convert [default: monitor_dir/realtime_p2s_failed_list.log]
+#%    -d [filename]                                 Specify custom location for the list of attempted files [default: monitor_dir/realfreq_attempted_list.log]
+#%    -l [filename]                                 Specify custom log filename [default: monitor_dir/realfreq.log]
+#%    -f [file]                                     Specify location for the list of files that failed to convert [default: monitor_dir/realfreq_failed_list.log]
 #%    -s [file]                                     Specify custom script for handling conversion [default: script_location/pipeline.sh]
 #%    -y, --yes                                     Say yes to 'Are you sure?' message in advance for overwriting
 #%
@@ -224,17 +224,17 @@ fi
 DUMP_FILE="$MONITOR_PARENT_DIR/dump.tmp"
 
 # set the temporary file and log file
-[ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realtime_p2s_attempted_list.log
+[ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realfreq_attempted_list.log
 echo "[realp2s.sh] Temporary file location that saves the state $TMP_FILE_PATH"
-[ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realtime_p2s_failed_list.log
+[ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realfreq_failed_list.log
 echo "[realp2s.sh] Any pod5 files that failed conversions will be written to $FAILED_LIST"
-[ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realtime_p2s.log
+[ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq.log
 echo "[realp2s.sh] Master log file location ${LOG}"
-MONITOR_TRACE=${MONITOR_PARENT_DIR}/realtime_p2s_monitor_trace.log              #trace of the monitor for debugging
+MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #trace of the monitor for debugging
 echo "[realp2s.sh] Monitor trace log ${MONITOR_TRACE}"
-START_END_TRACE=${MONITOR_PARENT_DIR}/realtime_p2s_start_end_trace.log          #trace for debugging
+START_END_TRACE=${MONITOR_PARENT_DIR}/realfreq_start_end_trace.log          #trace for debugging
 echo "[realp2s.sh] Start end trace log ${START_END_TRACE}"
-MONITOR_TEMP=${MONITOR_PARENT_DIR}/realtime_p2s_monitor_temp                    #used internally to communicate with the monitor
+MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
 echo "[realp2s.sh] Idle time with no pod5 files to end the program ${TIME_INACTIVE} seconds"
 test -d ${MONITOR_PARENT_DIR} || { echo "[realp2s.sh] Monitor directory does not exist!"; exit 1; }
 [ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
