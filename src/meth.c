@@ -112,6 +112,7 @@ typedef struct {
 KHASH_MAP_INIT_STR(str, stat_t *);
 
 khash_t(str)* stats_map;
+char * dump_filepath;
 
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
@@ -841,20 +842,34 @@ void dump_stats_map(const char * dump_file){
     for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
         if (kh_exist(stats_map, k)) {
             stat_t * stat = kh_value(stats_map, k);
-            int chrom_len = strlen(stat->chrom);
-            ASSERT_MSG(fwrite(&chrom_len, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(stat->chrom, sizeof(char), chrom_len+1, fp)==chrom_len+1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->start, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->end, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->depth, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->n_mod, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->n_called, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->n_skipped, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->freq, sizeof(double), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->mod_code, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->mod_strand, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->ref_base, sizeof(char), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
-            ASSERT_MSG(fwrite(&stat->is_aln_cpg, sizeof(int), 1, fp)==1, "Error writing to dump file: %s\n", dump_file);
+            size_t chrom_len = strlen(stat->chrom);
+
+            // fprintf(stderr, "writing chrom_len:%ld chrom:%s start:%d end:%d depth:%d n_mod:%d n_called:%d n_skipped:%d mod_code:%c mod_strand:%c ref_base:%c is_aln_cpg:%d\n", chrom_len, stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->mod_code, stat->mod_strand, stat->ref_base, stat->is_aln_cpg);
+
+            size_t r = fwrite(&chrom_len, sizeof(size_t), 1, fp);
+            ASSERT_MSG(r==1, "Error writing chrom_len to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(stat->chrom, sizeof(char), chrom_len, fp);
+            ASSERT_MSG(r==chrom_len, "Error writing chrom to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->start, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing start to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->end, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing end to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->depth, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing depth to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->n_mod, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing n_mod to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->n_called, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing n_called to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->n_skipped, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing n_skipped to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->mod_code, sizeof(char), 1, fp);
+            ASSERT_MSG(r==1, "Error writing mod_code to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->mod_strand, sizeof(char), 1, fp);
+            ASSERT_MSG(r==1, "Error writing mod_strand to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->ref_base, sizeof(char), 1, fp);
+            ASSERT_MSG(r==1, "Error writing ref_base to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&stat->is_aln_cpg, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing is_aln_cpg to dump file: %s r:%ld\n", dump_file, r);
 
         }
     }
@@ -869,31 +884,47 @@ void load_stats_map(const char * dump_file){
         exit(EXIT_FAILURE);
     }
 
-    stat_t * stat = (stat_t *)malloc(sizeof(stat_t));
-    MALLOC_CHK(stat);
-    
     while (1) {
         
-        int chrom_len;
-        ASSERT_MSG(fread(&chrom_len, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+        size_t chrom_len;
+        size_t r = fread(&chrom_len, sizeof(size_t), 1, fp);
+
         if(feof(fp)){
+            fprintf(stderr, "[realfreq] reading dump file %s reached EOF\n", dump_file);
             break;
         }
+
+        ASSERT_MSG(r==1, "Error reading chrom_len from dump file: %s r:%ld\n", dump_file, r);        
         
+        stat_t * stat = (stat_t *)malloc(sizeof(stat_t));
+        MALLOC_CHK(stat);
         stat->chrom = (char *)malloc((chrom_len+1)*sizeof(char));
         MALLOC_CHK(stat->chrom);
-        ASSERT_MSG(fread(stat->chrom, sizeof(char), chrom_len+1, fp)==chrom_len+1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->start, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->end, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->depth, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->n_mod, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->n_called, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->n_skipped, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->freq, sizeof(double), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->mod_code, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->mod_strand, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->ref_base, sizeof(char), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
-        ASSERT_MSG(fread(&stat->is_aln_cpg, sizeof(int), 1, fp)==1, "Error reading from dump file: %s\n", dump_file);
+
+        stat->chrom[chrom_len] = '\0';
+
+        r = fread(stat->chrom, sizeof(char), chrom_len, fp);
+        ASSERT_MSG(r==chrom_len, "Error reading chrom from dump file: %s r:%ld\n", dump_file, r);
+        r = fread(&stat->start, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading start from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->end, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading end from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->depth, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading depth from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->n_mod, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading n_mod from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->n_called, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading n_called from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->n_skipped, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading n_skipped from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->mod_code, sizeof(char), 1, fp);
+        ASSERT_MSG(r==1, "Error reading mod_code from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->mod_strand, sizeof(char), 1, fp);
+        ASSERT_MSG(r==1, "Error reading mod_strand from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->ref_base, sizeof(char), 1, fp);
+        ASSERT_MSG(r==1, "Error reading ref_base from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&stat->is_aln_cpg, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading is_aln_cpg from dump file: %s\n r:%ld", dump_file, r);
 
         char *key = make_key(stat->chrom, stat->start, stat->end, stat->mod_code, stat->mod_strand);
         int ret;
@@ -904,13 +935,9 @@ void load_stats_map(const char * dump_file){
     fclose(fp);
 }
 
-void init_meth(const char * reffile, const char * dump_file, int is_resuming){
+void init_meth(const char * reffile){
     stats_map = kh_init(str);
-    if(is_resuming){
-        load_stats_map(dump_file);
-    }
-
-    load_ref(reffile);
+    fprintf(stderr, "[realfreq] loading reference from %s\n", reffile);
 }
 
 void destroy_meth(){

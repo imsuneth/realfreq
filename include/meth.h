@@ -30,8 +30,10 @@ SOFTWARE.
 
 void simple_meth_view(core_t* core);
 void meth_freq(core_t* core);
-void init_meth(const char * ref, const char * dump, int is_resuming);
+void init_meth(const char * ref);
 void destroy_meth();
 void dump_stats_map(const char * stats_file);
 void print_stats(FILE * output_file, int is_bedmethyl);
 int get_stats_len();
+void load_stats_map(const char * dump_file);
+void dump_stats_map(const char * dump_file);

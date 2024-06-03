@@ -31,10 +31,12 @@ SOFTWARE.
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "file_handler.h"
 #include "logger.h"
 #include "meth.h"
 #include "error.h"
+#include "ref.h"
 
 static char * reffile = NULL;
 static char * outputfile = NULL;
@@ -43,8 +45,17 @@ static int is_resuming = 0;
 static char * dumpfile = NULL;
 
 void initialize() {
-    init_meth(reffile, dumpfile, is_resuming);
-    set_output_file(outputfile, is_bedmethyl);
+    init_meth(reffile);
+    if(is_resuming) {
+        if(access(dumpfile, F_OK) == -1) {
+            error("Dump file does not exist");
+        }
+        fprintf(stderr, "[realfreq] resuming, loading stats map from %s\n", dumpfile);
+        load_stats_map(dumpfile);
+        write_output(outputfile, is_bedmethyl);
+    }
+    load_ref(reffile);
+    
 }
 
 void destroy() {
@@ -57,12 +68,44 @@ void print_usage(FILE * fp) {
     fprintf(fp, "  -r, --reference FILE    reference file\n");
     fprintf(fp, "  -o, --output FILE       methylation frequency output file\n");
     fprintf(fp, "  -b, --bedmethyl         output in bedMethyl format\n");
-    fprintf(fp, "  -s, --resume DUMP_FILE  resume from a dump file\n");
+    fprintf(fp, "  -d, --dump FILE         dump file\n");
+    fprintf(fp, "  -s, --resume            resume from a dump file\n");
+}
+
+void read_file_contents(char *filepath) {
+
+    double realtime0 = realtime();
+
+    opt_t opt;
+    init_opt(&opt); //initialise options to defaults
+    
+    //initialise the core data structure
+    core_t* core = init_core(filepath, opt, realtime0);
+
+    meth_freq(core);
+
+    double realtime1 = realtime();
+
+    dump_stats_map(dumpfile);
+    write_output(outputfile, is_bedmethyl);
+
+    double realtime2 = realtime();
+
+    static log_entry_t log_entry;
+    log_entry.bamfile = filepath;
+    log_entry.realtime_meth_freq = realtime1 - realtime0;
+    log_entry.realtime_write_output = realtime2 - realtime1;
+    log_entry.stats_len = get_stats_len();
+    log_file_processed(&log_entry);
+
+    //free the core data structure
+    free_core(core,opt);
+    return;
 }
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "r:o:b:s";
+    const char* optstring = "r:o:bd:s";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
@@ -75,9 +118,12 @@ int main(int argc, char* argv[]) {
             case 'b':
                 is_bedmethyl = 1;
                 break;
+            case 'd':
+                dumpfile = optarg;
+                break;
             case 's':
                 is_resuming = 1;
-                dumpfile = optarg;
+                break;
             default:
                 print_usage(stderr);
                 exit(EXIT_FAILURE);
@@ -85,22 +131,43 @@ int main(int argc, char* argv[]) {
     }
 
     if (reffile == NULL) {
-        fprintf(stderr, "Reference file is not provided\n");
+        fprintf(stderr, "Reference file is not specified. Use -r or --reference flag\n");
         exit(EXIT_FAILURE);
     }
 
     if (outputfile == NULL) {
-        fprintf(stderr, "Output file is not provided\n");
+        fprintf(stderr, "Output file is not specified. Use -o or --output flag\n");
         exit(EXIT_FAILURE);
     }
 
-    if(is_resuming && dumpfile == NULL){
-        fprintf(stderr, "Resuming but dump file is not provided\n");
+    if (dumpfile == NULL) {
+        fprintf(stderr, "Dump file is not specified. Use -d or --dump flag\n");
         exit(EXIT_FAILURE);
     }
 
     initialize();
-    read_files_from_stdin();
+    
+    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
+    fprintf(stderr, "[realfreq] reading file path from stdin\n");
+    while (1) {
+        int status = fscanf(stdin, "%s", filepath);
+        if (ferror(stdin)) {
+            fprintf(stderr, "[realfreq] error reading from stdin\n");
+            fprintf(stderr, "[realfreq] exiting...\n");
+            break;
+        }
+        if (feof(stdin)) {
+            fprintf(stderr, "[realfreq] end of stdin\n");
+            fprintf(stderr, "[realfreq] exiting...\n");
+            break;
+        }
+        
+        fprintf(stderr, "[realfreq] processing file %s\n", filepath);
+        read_file_contents(filepath);
+        
+    }
+    free(filepath);
+
     destroy();
     return 0;
 }

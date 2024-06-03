@@ -37,70 +37,14 @@ SOFTWARE.
 #include "meth.h"
 #include "error.h"
 
-static const char *output_tsv;
-static log_entry_t log_entry;
-static int bedmethyl;
-
-void set_output_file(const char *output_file, int is_bedmethyl) {
-    output_tsv = output_file;
-    bedmethyl = is_bedmethyl;
-}
-
-
-void write_output() {
-    FILE *output_fp = fopen(output_tsv, "w");
+void write_output(char *output_file, int is_bedmethyl) {
+    FILE *output_fp = fopen(output_file, "w");
     if (output_fp == NULL) {
-        ERROR("could not open the output file %s", output_tsv);
+        ERROR("could not open the output file %s", output_file);
         exit(EXIT_FAILURE);
     }
-    dump_stats_map(output_tsv);
-    print_stats(output_fp, bedmethyl);
+    print_stats(output_fp, is_bedmethyl);
     fclose(output_fp);
     return;
 }
 
-void read_file_contents(char *filepath) {
-
-    double realtime0 = realtime();
-
-    opt_t opt;
-    init_opt(&opt); //initialise options to defaults
-    
-    //initialise the core data structure
-    core_t* core = init_core(filepath, opt, realtime0);
-
-    meth_freq(core);
-
-    double realtime1 = realtime();
-
-    write_output(output_tsv);
-
-    double realtime2 = realtime();
-
-    int stats_len = get_stats_len();
-    
-    log_entry.bamfile = filepath;
-    log_entry.realtime_meth_freq = realtime1 - realtime0;
-    log_entry.realtime_write_output = realtime2 - realtime1;
-    log_entry.stats_len = stats_len;
-    
-    log_file_processed(&log_entry);
-
-    //free the core data structure
-    free_core(core,opt);
-    return;
-}
-
-void read_files_from_stdin() {
-    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    while (1) {
-        int status = fscanf(stdin, "%s", filepath);
-        if (ferror(stdin) || feof(stdin)) {
-            break;
-        }
-        
-        read_file_contents(filepath);
-        
-    }
-    free(filepath);
-}
