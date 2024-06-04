@@ -178,44 +178,44 @@ NORMAL="\033[0;39m"
 
 # If either format or monitor option not set
 if ! ($monitor_dir_specified); then
-    if ! $monitor_dir_specified; then echo "[realp2s.sh] No monitor directory specified!"; fi
+    if ! $monitor_dir_specified; then echo "[$SCRIPT_NAME] No monitor directory specified!"; fi
 	usage
 	exit 1
 fi
 
 # If GUPPY_BIN not set
 if [ -z ${GUPPY_BIN} ]; then
-    echo -e $RED"[realp2s.sh] Guppy binary not set! Set with -g option"$NORMAL
+    echo -e $RED"[$SCRIPT_NAME] Guppy binary not set! Set with -g option"$NORMAL
     exit 1
 fi
 
 # If reference genome not set
 if [ -z ${REF} ]; then
-    echo -e $RED"[realp2s.sh] Reference genome not set! Set with -f option"$NORMAL
+    echo -e $RED"[$SCRIPT_NAME] Reference genome not set! Set with -f option"$NORMAL
     exit 1
 fi
 
 # If reference genome index not set
 if [ -z ${REFIDX} ]; then
-    echo -e $RED"[realp2s.sh] Reference genome index not set! Set with -x option"$NORMAL
+    echo -e $RED"[$SCRIPT_NAME] Reference genome index not set! Set with -x option"$NORMAL
     exit 1
 fi
 
 # If model not set
 if [ -z ${MODEL} ]; then
-    echo -e $RED"[realp2s.sh] Model not set! Set with -e option"$NORMAL
+    echo -e $RED"[$SCRIPT_NAME] Model not set! Set with -e option"$NORMAL
     exit 1
 fi
 
 # If output file not set
 if [ -z ${OUTPUT_FILE} ]; then
     OUTPUT_FILE="$MONITOR_PARENT_DIR/freq.tsv"
-    echo -e "[realp2s.sh] Output file not set. Using default $MONITOR_PARENT_DIR"
+    echo -e "[$SCRIPT_NAME] Output file not set. Using default $MONITOR_PARENT_DIR"
 fi
 
 # wait till the monitor directory is available
 if [ ! -d $MONITOR_PARENT_DIR ]; then
-    echo "[realp2s.sh] $MONITOR_PARENT_DIR not found. Waiting for it to be created."
+    echo "[$SCRIPT_NAME] $MONITOR_PARENT_DIR not found. Waiting for it to be created."
     while [ ! -d $MONITOR_PARENT_DIR ]; do
         sleep 1
     done
@@ -225,18 +225,18 @@ DUMP_FILE="$MONITOR_PARENT_DIR/dump.tmp"
 
 # set the temporary file and log file
 [ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realfreq_attempted_list.log
-echo "[realp2s.sh] Temporary file location that saves the state $TMP_FILE_PATH"
+echo "[$SCRIPT_NAME] Temporary file location that saves the state $TMP_FILE_PATH"
 [ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realfreq_failed_list.log
-echo "[realp2s.sh] Any pod5 files that failed conversions will be written to $FAILED_LIST"
+echo "[$SCRIPT_NAME] Any pod5 files that failed conversions will be written to $FAILED_LIST"
 [ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq.log
-echo "[realp2s.sh] Master log file location ${LOG}"
+echo "[$SCRIPT_NAME] Master log file location ${LOG}"
 MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #trace of the monitor for debugging
-echo "[realp2s.sh] Monitor trace log ${MONITOR_TRACE}"
+echo "[$SCRIPT_NAME] Monitor trace log ${MONITOR_TRACE}"
 START_END_TRACE=${MONITOR_PARENT_DIR}/realfreq_start_end_trace.log          #trace for debugging
-echo "[realp2s.sh] Start end trace log ${START_END_TRACE}"
+echo "[$SCRIPT_NAME] Start end trace log ${START_END_TRACE}"
 MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
-echo "[realp2s.sh] Idle time with no pod5 files to end the program ${TIME_INACTIVE} seconds"
-test -d ${MONITOR_PARENT_DIR} || { echo "[realp2s.sh] Monitor directory does not exist!"; exit 1; }
+echo "[$SCRIPT_NAME] Idle time with no pod5 files to end the program ${TIME_INACTIVE} seconds"
+test -d ${MONITOR_PARENT_DIR} || { echo "[$SCRIPT_NAME] Monitor directory does not exist!"; exit 1; }
 [ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
 [ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
 [ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
@@ -244,12 +244,12 @@ test -d ${MONITOR_PARENT_DIR} || { echo "[realp2s.sh] Monitor directory does not
 [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
 
 
-${SLOW5TOOLS} --version &> /dev/null || { echo -e $RED"[realp2s.sh] slow5tools not found! Either put slow5tools under path or set SLOW5TOOLS variable, e.g.,export SLOW5TOOLS=/path/to/slow5tools"$NORMAL; exit 1;}
-${BLUECRAB} --version &> /dev/null || { echo -e $RED"[realp2s.sh] blue-crab not found! Either put blue-crab under path or set BLUECRAB variable, e.g.,export BLUECRAB=/path/to/blue-crab"$NORMAL; exit 1;}
-command -v ${BUTTERY_EEL} &> /dev/null || { echo -e $RED"[realp2s.sh] buttery-eel not found! Either put buttery-eel under path or set BUTTERY_EEL variable, e.g.,export BUTTERY_EEL=/path/to/buttery-eel"$NORMAL; exit 1;}
-${MINIMAP2} --version &> /dev/null || { echo -e $RED"[realp2s.sh] minimap2 not found! Either put minimap2 under path or set MINIMAP2 variable, e.g.,export MINIMAP2=/path/to/minimap2"$NORMAL; exit 1;}
-${SAMTOOLS} --version &> /dev/null || { echo -e $RED"[realp2s.sh] samtools not found! Either put samtools under path or set SAMTOOLS variable, e.g.,export SAMTOOLS=/path/to/samtools"$NORMAL; exit 1;}
-which inotifywait &> /dev/null || { echo -e $RED"[realp2s.sh] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
+${SLOW5TOOLS} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] slow5tools not found! Either put slow5tools under path or set SLOW5TOOLS variable, e.g.,export SLOW5TOOLS=/path/to/slow5tools"$NORMAL; exit 1;}
+${BLUECRAB} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] blue-crab not found! Either put blue-crab under path or set BLUECRAB variable, e.g.,export BLUECRAB=/path/to/blue-crab"$NORMAL; exit 1;}
+command -v ${BUTTERY_EEL} &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] buttery-eel not found! Either put buttery-eel under path or set BUTTERY_EEL variable, e.g.,export BUTTERY_EEL=/path/to/buttery-eel"$NORMAL; exit 1;}
+${MINIMAP2} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] minimap2 not found! Either put minimap2 under path or set MINIMAP2 variable, e.g.,export MINIMAP2=/path/to/minimap2"$NORMAL; exit 1;}
+${SAMTOOLS} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] samtools not found! Either put samtools under path or set SAMTOOLS variable, e.g.,export SAMTOOLS=/path/to/samtools"$NORMAL; exit 1;}
+which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
 
 #== Begin Run ==#
 
@@ -259,7 +259,7 @@ if ! $resuming && ! $say_yes; then # If not resuming
     if [ -e ${LOG} ]
         then
             while true; do
-                read -p "[realp2s.sh] A previous log file exist at ${LOG}! Are you sure you want to remove them and start over (y/n)" response
+                read -p "[$SCRIPT_NAME] A previous log file exist at ${LOG}! Are you sure you want to remove them and start over (y/n)" response
                 case $response in
                     [Yy]* )
                         test -e $LOG && rm $LOG # Empty log file
@@ -274,7 +274,7 @@ if ! $resuming && ! $say_yes; then # If not resuming
                         ;;
 
                     * )
-                        echo "[realp2s.sh] Please answer yes or no."
+                        echo "[$SCRIPT_NAME] Please answer yes or no."
                         ;;
                 esac
         done
@@ -284,13 +284,13 @@ fi
 
 # Create folders to copy the results (slow5 files logs)
 # test -d $MONITOR_PARENT_DIR/slow5         || mkdir $MONITOR_PARENT_DIR/slow5            || exit 1
-# echo "[realp2s.sh] SLOW5 files will be written to $MONITOR_PARENT_DIR/slow5"
+# echo "[$SCRIPT_NAME] SLOW5 files will be written to $MONITOR_PARENT_DIR/slow5"
 # test -d $MONITOR_PARENT_DIR/slow5_logs    || mkdir $MONITOR_PARENT_DIR/slow5_logs       || exit 1
-# echo "[realp2s.sh] SLOW5 p2s individual logs will be written to $MONITOR_PARENT_DIR/slow5_logs"
+# echo "[$SCRIPT_NAME] SLOW5 p2s individual logs will be written to $MONITOR_PARENT_DIR/slow5_logs"
 
 
 # # Start realfreq
-# echo "[realp2s.sh] Starting realfreq" | tee $LOG
+# echo "[$SCRIPT_NAME] Starting realfreq" | tee $LOG
 # (
 # while read line; do
 #     if [[ $line == "Finished pipeline"* ]]; then
@@ -314,56 +314,56 @@ catch_bam() {
 
 
 if ! $realtime; then # If non-realtime option set
-    echo "[realp2s.sh] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee $LOG
+    echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
-    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL | tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |&
-    tee $LOG
+    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
+    { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
 
 else # Else assume realtime analysis is desired
 
     # Monitor the new file creation in pod5 folder and execute realtime f5-pipeline script
     # Close after timeout met
     if $resuming; then # If resuming option set
-        echo "[realp2s.sh] resuming" | tee -a $LOG
+        echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL | tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |&
-        tee -a $LOG | { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
+        { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
     else
-        echo "[realp2s.sh] running" | tee $LOG
+        echo "[$SCRIPT_NAME] running" | tee $LOG
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL | tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |&
-        tee -a $LOG | { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
+        { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
     fi
-    echo "[realp2s.sh] No new pod5 files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
-    echo "[realp2s.sh] converting left overs" | tee -a $LOG
+    echo "[$SCRIPT_NAME] No new pod5 files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
+    echo "[$SCRIPT_NAME] converting left overs" | tee -a $LOG
     find $MONITOR_PARENT_DIR/ -name "*.pod5"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL | tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |&
-    tee -a $LOG | { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
+    { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
 
 fi
 
-test -e $FAILED_LIST && echo -e $RED"[realp2s.sh] $(wc -l $FAILED_LIST) pod5 files failed to convert. See $FAILED_LIST for the list"$NORMAL | tee -a $LOG
+test -e $FAILED_LIST && echo -e $RED"[$SCRIPT_NAME] $(wc -l $FAILED_LIST) files failed the pipeline. See $FAILED_LIST for the list"$NORMAL | tee -a $LOG
 NUMPOD5=$(find $MONITOR_PARENT_DIR/ -name '*.pod5' | wc -l)
-NUMBLOW5=$(find $MONITOR_PARENT_DIR/ -name '*.blow5' | wc -l)
-if [ ${NUMPOD5} -ne ${NUMBLOW5} ] ; then
-    echo -e $RED"[realp2s.sh] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBLOW5 blow5 files. Check the logs for any failures."$NORMAL | tee -a $LOG
+NUMBAM=$(find $MONITOR_PARENT_DIR/ -name '*.remora.bam' | wc -l)
+if [ ${NUMPOD5} -ne ${NUMBAM} ] ; then
+    echo -e $RED"[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBAM remora bam files. Check the logs for any failures."$NORMAL | tee -a $LOG
 else
-    echo "[realp2s.sh] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBLOW5 blow5 files." | tee -a $LOG
+    echo "[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBAM blow5 files." | tee -a $LOG
 fi
-POD5_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.pod5' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
-BLOW5_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.blow5' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
-SAVINGS=$(echo $POD5_SIZE - $BLOW5_SIZE | bc)
-SAVINGS_PERCENT=$(echo "scale=2; $SAVINGS/$POD5_SIZE*100" | bc)
-echo "POD5 size: $POD5_SIZE GB" | tee -a $LOG
-echo "BLOW5 size: $BLOW5_SIZE GB" | tee -a $LOG
-echo "Savings: $SAVINGS GB ($SAVINGS_PERCENT%)" | tee -a $LOG
+# POD5_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.pod5' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
+# BAM_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.remora.bam' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
+# SAVINGS=$(echo $POD5_SIZE - $BAM_SIZE | bc)
+# SAVINGS_PERCENT=$(echo "scale=2; $SAVINGS/$POD5_SIZE*100" | bc)
+# echo "POD5 size: $POD5_SIZE GB" | tee -a $LOG
+# echo "BAM size: $BAM_SIZE GB" | tee -a $LOG
+# echo "Savings: $SAVINGS GB ($SAVINGS_PERCENT%)" | tee -a $LOG
 
 echo "Scanning for errors in log files" | tee -a $LOG
 find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "ERROR" | tee -a $LOG
 echo "Scanning for warnings in log files" | tee -a $LOG
 find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "WARNING" | tee -a $LOG
-echo "[realp2s.sh] exiting" | tee -a $LOG
+echo "[$SCRIPT_NAME] exiting" | tee -a $LOG

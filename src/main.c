@@ -48,11 +48,11 @@ static char * dumpfile = NULL;
 void initialize() {
     init_meth(reffile);
     if(is_resuming) {
+        INFO("[realfreq] resuming, loading stats map from %s\n", dumpfile);
         if(access(dumpfile, F_OK) == -1) {
             ERROR("%s", "[realfreq] dump file does not exist\n");
             exit(EXIT_FAILURE);
         }
-        INFO("[realfreq] resuming, loading stats map from %s\n", dumpfile);
         load_stats_map(dumpfile);
         write_output(outputfile, is_bedmethyl);
     }
