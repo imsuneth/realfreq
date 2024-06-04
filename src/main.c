@@ -49,9 +49,10 @@ void initialize() {
     init_meth(reffile);
     if(is_resuming) {
         if(access(dumpfile, F_OK) == -1) {
-            fprintf(stderr, "Dump file does not exist\n");
+            ERROR("%s", "[realfreq] dump file does not exist\n");
+            exit(EXIT_FAILURE);
         }
-        fprintf(stderr, "[realfreq] resuming, loading stats map from %s\n", dumpfile);
+        INFO("[realfreq] resuming, loading stats map from %s\n", dumpfile);
         load_stats_map(dumpfile);
         write_output(outputfile, is_bedmethyl);
     }
@@ -132,38 +133,38 @@ int main(int argc, char* argv[]) {
     }
 
     if (reffile == NULL) {
-        fprintf(stderr, "Reference file is not specified. Use -r or --reference flag\n");
+        ERROR("%s", "Reference file is not specified. Use -r or --reference flag\n");
         exit(EXIT_FAILURE);
     }
 
     if (outputfile == NULL) {
-        fprintf(stderr, "Output file is not specified. Use -o or --output flag\n");
+        ERROR("%s", "Output file is not specified. Use -o or --output flag\n");
         exit(EXIT_FAILURE);
     }
 
     if (dumpfile == NULL) {
-        fprintf(stderr, "Dump file is not specified. Use -d or --dump flag\n");
+        ERROR("%s", "Dump file is not specified. Use -d or --dump flag\n");
         exit(EXIT_FAILURE);
     }
 
     initialize();
     
     char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    fprintf(stderr, "[realfreq] reading file path from stdin\n");
+    INFO("%s", "[realfreq] reading file path from stdin\n");
     while (1) {
         int status = fscanf(stdin, "%s", filepath);
         if (ferror(stdin)) {
-            fprintf(stderr, "[realfreq] error reading from stdin\n");
-            fprintf(stderr, "[realfreq] exiting...\n");
+            INFO("%s", "[realfreq] error reading from stdin\n");
+            INFO("%s", "[realfreq] exiting...\n");
             break;
         }
         if (feof(stdin)) {
-            fprintf(stderr, "[realfreq] end of stdin\n");
-            fprintf(stderr, "[realfreq] exiting...\n");
+            INFO("%s", "[realfreq] end of stdin\n");
+            INFO("%s", "[realfreq] exiting...\n");
             break;
         }
         
-        fprintf(stderr, "[realfreq] processing file %s\n", filepath);
+        INFO("[realfreq] processing file %s\n", filepath);
         read_file_contents(filepath);
         
     }

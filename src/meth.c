@@ -179,22 +179,6 @@ char* make_key(const char *chrom, int start, int end, char mod_code, char strand
     return key;
 }
 
-// function to print an array of given type
-void print_array(void *array, int len, char type){
-    if(type == 'i'){
-        int *arr = (int *)array;
-        for(int i=0;i<len;i++){
-            fprintf(stderr, "%d,", arr[i]);
-        }
-    }else if(type == 'c'){
-        char *arr = (char *)array;
-        for(int i=0;i<len;i++){
-            fprintf(stderr, "%c,", arr[i]);
-        }
-    }
-    fprintf(stderr, "\n");
-}
-
 /*
 * Extracts the modifications from the MM string
 * @param mm_string MM string
