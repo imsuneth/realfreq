@@ -37,6 +37,7 @@ SOFTWARE.
 #include "meth.h"
 #include "error.h"
 #include "ref.h"
+#include "misc.h"
 
 static char * reffile = NULL;
 static char * outputfile = NULL;
@@ -48,7 +49,7 @@ void initialize() {
     init_meth(reffile);
     if(is_resuming) {
         if(access(dumpfile, F_OK) == -1) {
-            error("Dump file does not exist");
+            fprintf(stderr, "Dump file does not exist\n");
         }
         fprintf(stderr, "[realfreq] resuming, loading stats map from %s\n", dumpfile);
         load_stats_map(dumpfile);
