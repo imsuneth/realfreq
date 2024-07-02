@@ -32,12 +32,14 @@ SOFTWARE.
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "file_handler.h"
 #include "logger.h"
 #include "meth.h"
 #include "error.h"
 #include "ref.h"
 #include "misc.h"
+#include "server.h"
 
 static char * reffile = NULL;
 static char * outputfile = NULL;
@@ -105,6 +107,29 @@ void read_file_contents(char *filepath) {
     return;
 }
 
+void start_realfreq() {
+    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
+    INFO("%s", "[realfreq] reading file path from stdin\n");
+    while (1) {
+        int status = fscanf(stdin, "%s", filepath);
+        if (ferror(stdin)) {
+            INFO("%s", "[realfreq] error reading from stdin\n");
+            INFO("%s", "[realfreq] exiting...\n");
+            break;
+        }
+        if (feof(stdin)) {
+            INFO("%s", "[realfreq] end of stdin\n");
+            INFO("%s", "[realfreq] exiting...\n");
+            break;
+        }
+        
+        INFO("[realfreq] processing file %s\n", filepath);
+        read_file_contents(filepath);
+        
+    }
+    free(filepath);
+}
+
 int main(int argc, char* argv[]) {
     //parse the user args
     const char* optstring = "r:o:bd:s";
@@ -148,28 +173,14 @@ int main(int argc, char* argv[]) {
     }
 
     initialize();
-    
-    char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    INFO("%s", "[realfreq] reading file path from stdin\n");
-    while (1) {
-        int status = fscanf(stdin, "%s", filepath);
-        if (ferror(stdin)) {
-            INFO("%s", "[realfreq] error reading from stdin\n");
-            INFO("%s", "[realfreq] exiting...\n");
-            break;
-        }
-        if (feof(stdin)) {
-            INFO("%s", "[realfreq] end of stdin\n");
-            INFO("%s", "[realfreq] exiting...\n");
-            break;
-        }
-        
-        INFO("[realfreq] processing file %s\n", filepath);
-        read_file_contents(filepath);
-        
-    }
-    free(filepath);
 
+    pthread_t server_thread;
+    pthread_create(&server_thread, NULL, start_server, NULL);
+
+    start_realfreq();
+
+    pthread_join(server_thread, NULL);
+    
     destroy();
     return 0;
 }

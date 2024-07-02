@@ -633,6 +633,45 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
+static stat_t* get_stat(const char *chrom, int start, int end, char mod_code, char strand){
+    char *key = make_key(chrom, start, end, mod_code, strand);
+    khiter_t k = kh_get(str, stats_map, key);
+    if (k == kh_end(stats_map)) {
+        return NULL;
+    }
+    free(key);
+    return kh_value(stats_map, k);
+}
+
+char* get_all_stats_at_pos(const char *chrom, int pos, char mod_code){
+    stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
+    MALLOC_CHK(stats);
+    int len = 0;
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t * stat = kh_value(stats_map, k);
+            if(strcmp(stat->chrom, chrom) == 0 && stat->start <= pos && stat->end >= pos && stat->mod_code == mod_code){
+                stats[len] = stat;
+                len++;
+            }
+        }
+    }
+    if(len == 0){
+        free(stats);
+        return NULL;
+    }
+    char *all_stats = (char *)malloc(sizeof(char)*len*100);
+    MALLOC_CHK(all_stats);
+
+    for(int i=0;i<len;i++){
+        stat_t *stat = stats[i];
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\n", all_stats, stat->chrom, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq);
+    }
+
+    free(stats);
+    return all_stats;
+}
+
 static stat_t ** get_stats(khash_t(str)* stats_map, uint32_t *meth_freqs_len){
     uint32_t len = 0;
     stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
