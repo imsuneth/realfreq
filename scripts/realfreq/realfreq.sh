@@ -316,8 +316,8 @@ catch_bam() {
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
-    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
-    { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+    > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
 
 else # Else assume realtime analysis is desired
 
@@ -327,22 +327,22 @@ else # Else assume realtime analysis is desired
         echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
-        { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+        > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
     else
         echo "[$SCRIPT_NAME] running" | tee $LOG
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
-        { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+        > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
     fi
     echo "[$SCRIPT_NAME] No new pod5 files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
     echo "[$SCRIPT_NAME] converting left overs" | tee -a $LOG
     find $MONITOR_PARENT_DIR/ -name "*.pod5"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE |
-    { read file; echo "[realfreq.sh] $file"; } >> $TMP_FILE_PATH
+    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+    > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
 
 fi
 
