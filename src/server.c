@@ -51,11 +51,11 @@ char* help = "Available commands:\n \
 
 /* 
 test commands:
-    echo -e "help" | nc localhost 8080
-    echo -e "get_contig:chr1" | nc localhost 8080
-    echo -e "get_range:100:200" | nc localhost 8080
-    echo -e "get_contig_range:chr22:18850302:49514860" | nc localhost 8080
-    echo -e "get_contig_range_mod:chr22:18850302:49514860:CG" | nc localhost 8080
+    nc localhost 8080 <<< help
+    nc localhost 8080 <<< get_contig:chr1
+    nc localhost 8080 <<< get_range:1:100
+    nc localhost 8080 <<< get_contig_range:chr22:18850302:49514860
+    nc localhost 8080 <<< get_contig_range_mod:chr22:18850302:49514860:m
 */
 
 void handle_request(int client_fd) 
@@ -144,10 +144,11 @@ void handle_request(int client_fd)
     }
 
     // and send that buffer to client 
-    write(client_fd, response, strlen(response)*sizeof(char));
+    if (write(client_fd, response, strlen(response)*sizeof(char)) < 0) {
+        ERROR("%s", "error writing to socket\n");
+    }
     
     close(client_fd);
-    INFO("%s", "socket closed\n");
 }
 
 
@@ -164,7 +165,6 @@ void start_server(){
             sleep(5);
         }
         else {
-            INFO("%s", "socket successfully created..\n");
             break;
         }
     }
@@ -184,7 +184,6 @@ void start_server(){
             sleep(5);
         }
         else {
-            INFO("%s", "socket successfully binded..\n");
             break;
         }
     }
@@ -204,7 +203,6 @@ void start_server(){
     }
 
     while(1) {
-        INFO("%s", "waiting for client...\n");
         // Accept the data packet from client and verification
         struct sockaddr_in cli;
         int client_fd, len;
@@ -215,8 +213,6 @@ void start_server(){
             sleep(5);
         }
         else {
-            INFO("%s", "server acccept the client...\n");
-
             pthread_t client_thread;
             pthread_create(&client_thread, NULL, handle_request, (void*)client_fd);
             pthread_detach(client_thread);

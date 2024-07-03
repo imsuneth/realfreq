@@ -50,9 +50,9 @@ static char * dumpfile = NULL;
 void initialize() {
     init_meth(reffile);
     if(is_resuming) {
-        INFO("[realfreq] resuming, loading stats map from %s\n", dumpfile);
+        INFO("resuming, loading stats map from %s\n", dumpfile);
         if(access(dumpfile, F_OK) == -1) {
-            ERROR("%s", "[realfreq] dump file does not exist\n");
+            ERROR("%s", "dump file does not exist\n");
             exit(EXIT_FAILURE);
         }
         load_stats_map(dumpfile);
@@ -109,21 +109,19 @@ void read_file_contents(char *filepath) {
 
 void start_realfreq() {
     char *filepath = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    INFO("%s", "[realfreq] reading file path from stdin\n");
+    INFO("%s", "reading file path from stdin\n");
     while (1) {
         int status = fscanf(stdin, "%s", filepath);
         if (ferror(stdin)) {
-            INFO("%s", "[realfreq] error reading from stdin\n");
-            INFO("%s", "[realfreq] exiting...\n");
+            INFO("%s", "error reading from stdin\n");
             break;
         }
         if (feof(stdin)) {
-            INFO("%s", "[realfreq] end of stdin\n");
-            INFO("%s", "[realfreq] exiting...\n");
+            INFO("%s", "end of stdin\n");
             break;
         }
         
-        INFO("[realfreq] processing file %s\n", filepath);
+        INFO("processing file %s\n", filepath);
         read_file_contents(filepath);
         
     }
@@ -182,5 +180,7 @@ int main(int argc, char* argv[]) {
     pthread_join(server_thread, NULL);
     
     destroy();
+
+    INFO("%s", "exiting\n");
     return 0;
 }
