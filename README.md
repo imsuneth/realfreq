@@ -1,5 +1,5 @@
 # <em>realfreq</em>
-Realtime methylation frequency tool.
+Real-time base modification frequency monitoring tool along with a real-time modification calling pipeline.
 
 ## Installation
 ### Building from source
@@ -40,7 +40,29 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 ```
 
 #### 02. Start sequencing run on Minknow
-When <em>realfreq</em> finishes processing a new batch of reads, it writes the updated methylation frequencies data to <em>freq.tsv</em> file inside <em>[directory]</em>.
+When <em>realfreq</em> finishes processing a new batch of reads, it writes the updated modification frequencies data to <em>freq.tsv</em> file inside <em>[directory]</em>.
+
+## <em>realfreq</em> server
+
+<em>realfreq</em> server starts automatically and provides an interface to access the real-time modification frequency information though simple socket connections.
+
+Sample commands
+```bash
+nc localhost 8080 <<< help
+nc localhost 8080 <<< get_contig:chr1
+nc localhost 8080 <<< get_range:1:100
+nc localhost 8080 <<< get_contig_range:chr22:18850302:49514860
+nc localhost 8080 <<< get_contig_range_mod:chr22:18850302:49514860:m
+```
+
+Available commands
+```bash
+help
+get_contig:<contig>
+get_range:<start_pos>:<end_pos>
+get_contig_range:<contig>:<start_pos>:<end_pos>
+get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>
+```
 
 ## <em>realfreq</em> output
 ### freq.tsv

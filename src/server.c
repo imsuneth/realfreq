@@ -132,7 +132,7 @@ void handle_request(int client_fd)
             if(req_contig == NULL || req_start_pos == NULL || req_end_pos == NULL || req_mod_code == NULL) {
                 response = "Invalid request get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n";
             } else {
-                response = get_stats_contig_range_mod_code(req_contig, atoi(req_start_pos), atoi(req_end_pos), req_mod_code);
+                response = get_stats_contig_range_mod_code(req_contig, atoi(req_start_pos), atoi(req_end_pos), req_mod_code[0]);
                 if (response == NULL) {
                     response = "No data found\n";
                 }
