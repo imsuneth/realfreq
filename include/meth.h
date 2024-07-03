@@ -38,4 +38,7 @@ int get_stats_len();
 void load_stats_map(const char * dump_file);
 void dump_stats_map(const char * dump_file);
 
-char* get_all_stats_at_pos(const char *chrom, int pos, char mod_code);
+char* get_stats_range(int start, int end);
+char* get_stats_contig(const char* contig);
+char* get_stats_contig_range(const char *contig, int start, int end);
+char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code);

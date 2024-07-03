@@ -95,7 +95,7 @@ enum MOD_CODES {
 };
 
 typedef struct {
-    char * chrom;
+    char * contig;
     int start;
     int end;
     int depth;
@@ -330,9 +330,9 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
             if (k == kh_end(stats)) {
                 stat_t * stat = (stat_t *)malloc(sizeof(stat_t));
                 MALLOC_CHK(stat);
-                stat->chrom = (char *)malloc(strlen(base.chrom)+1);
-                MALLOC_CHK(stat->chrom);
-                strcpy(stat->chrom, base.chrom);
+                stat->contig = (char *)malloc(strlen(base.chrom)+1);
+                MALLOC_CHK(stat->contig);
+                strcpy(stat->contig, base.chrom);
                 stat->start = base.ref_pos;
                 stat->end = base.ref_pos;
                 stat->mod_code = mod.mod_code;
@@ -643,14 +643,14 @@ static stat_t* get_stat(const char *chrom, int start, int end, char mod_code, ch
     return kh_value(stats_map, k);
 }
 
-char* get_all_stats_at_pos(const char *chrom, int pos, char mod_code){
+char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code) {
     stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
     MALLOC_CHK(stats);
     int len = 0;
     for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
         if (kh_exist(stats_map, k)) {
             stat_t * stat = kh_value(stats_map, k);
-            if(strcmp(stat->chrom, chrom) == 0 && stat->start <= pos && stat->end >= pos && stat->mod_code == mod_code){
+            if(strcmp(stat->contig, contig) == 0 && stat->start >= start && stat->end <= end && stat->mod_code == mod_code){
                 stats[len] = stat;
                 len++;
             }
@@ -665,12 +665,102 @@ char* get_all_stats_at_pos(const char *chrom, int pos, char mod_code){
 
     for(int i=0;i<len;i++){
         stat_t *stat = stats[i];
-        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\n", all_stats, stat->chrom, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq);
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, stat->contig, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
     }
 
     free(stats);
     return all_stats;
 }
+
+char* get_stats_range(int start, int end) {
+    stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
+    MALLOC_CHK(stats);
+    int len = 0;
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t * stat = kh_value(stats_map, k);
+            if(stat->start >= start && stat->end <= end){
+                stats[len] = stat;
+                len++;
+            }
+        }
+    }
+    if(len == 0){
+        free(stats);
+        return NULL;
+    }
+    char *all_stats = (char *)malloc(sizeof(char)*len*100);
+    MALLOC_CHK(all_stats);
+
+    for(int i=0;i<len;i++){
+        stat_t *stat = stats[i];
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, stat->contig, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
+    }
+
+    free(stats);
+    return all_stats;
+
+}
+
+char* get_stats_contig(const char* contig) {
+    stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
+    MALLOC_CHK(stats);
+    int len = 0;
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t * stat = kh_value(stats_map, k);
+            if(strcmp(stat->contig, contig) == 0){
+                stats[len] = stat;
+                len++;
+            }
+        }
+    }
+    if(len == 0){
+        free(stats);
+        return NULL;
+    }
+    char *all_stats = (char *)malloc(sizeof(char)*len*500);
+    MALLOC_CHK(all_stats);
+
+    for(int i=0;i<len;i++){
+        stat_t *stat = stats[i];
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, stat->contig, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
+    }
+
+    free(stats);
+    return all_stats;
+
+}
+
+char* get_stats_contig_range(const char *contig, int start, int end) {
+    stat_t ** stats = (stat_t **)malloc(sizeof(stat_t *)*kh_size(stats_map));
+    MALLOC_CHK(stats);
+    int len = 0;
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t * stat = kh_value(stats_map, k);
+            if(strcmp(stat->contig, contig) == 0 && stat->start >= start && stat->end <= end){
+                stats[len] = stat;
+                len++;
+            }
+        }
+    }
+    if(len == 0){
+        free(stats);
+        return NULL;
+    }
+    char *all_stats = (char *)malloc(sizeof(char)*len*100);
+    MALLOC_CHK(all_stats);
+
+    for(int i=0;i<len;i++){
+        stat_t *stat = stats[i];
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, stat->contig, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
+    }
+
+    free(stats);
+    return all_stats;
+}
+
 
 static stat_t ** get_stats(khash_t(str)* stats_map, uint32_t *meth_freqs_len){
     uint32_t len = 0;
@@ -724,7 +814,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
         if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
             continue;
         }
-        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", stat->chrom, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", stat->contig, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
     }
 
 }
@@ -737,7 +827,7 @@ static void print_meth_freq_bedmethyl(FILE * output_file, stat_t ** stats, uint3
         }
 
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
-        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, (stat->end + 1), stat->mod_code, stat->n_called, stat->mod_strand, stat->start, stat->end, stat->n_called, stat->freq);
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->contig, stat->start, (stat->end + 1), stat->mod_code, stat->n_called, stat->mod_strand, stat->start, stat->end, stat->n_called, stat->freq);
     }
 
 }
@@ -756,7 +846,7 @@ static void free_stats_map(khash_t(str)* stats_map){
     for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
         if (kh_exist(stats_map, k)) {
             stat_t * stat = kh_value(stats_map, k);
-            free((char *) stat->chrom);
+            free((char *) stat->contig);
             free((char *)kh_key(stats_map, k));
             free(kh_value(stats_map, k));
         }
@@ -865,13 +955,13 @@ void dump_stats_map(const char * dump_file){
     for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
         if (kh_exist(stats_map, k)) {
             stat_t * stat = kh_value(stats_map, k);
-            size_t chrom_len = strlen(stat->chrom);
+            size_t chrom_len = strlen(stat->contig);
 
-            // fprintf(stderr, "writing chrom_len:%ld chrom:%s start:%d end:%d depth:%d n_mod:%d n_called:%d n_skipped:%d mod_code:%c mod_strand:%c ref_base:%c is_aln_cpg:%d\n", chrom_len, stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->mod_code, stat->mod_strand, stat->ref_base, stat->is_aln_cpg);
+            // fprintf(stderr, "writing chrom_len:%ld chrom:%s start:%d end:%d depth:%d n_mod:%d n_called:%d n_skipped:%d mod_code:%c mod_strand:%c ref_base:%c is_aln_cpg:%d\n", chrom_len, stat->contig, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->mod_code, stat->mod_strand, stat->ref_base, stat->is_aln_cpg);
 
             size_t r = fwrite(&chrom_len, sizeof(size_t), 1, fp);
             ASSERT_MSG(r==1, "Error writing chrom_len to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(stat->chrom, sizeof(char), chrom_len, fp);
+            r = fwrite(stat->contig, sizeof(char), chrom_len, fp);
             ASSERT_MSG(r==chrom_len, "Error writing chrom to dump file: %s r:%ld\n", dump_file, r);
             r = fwrite(&stat->start, sizeof(int), 1, fp);
             ASSERT_MSG(r==1, "Error writing start to dump file: %s r:%ld\n", dump_file, r);
@@ -921,12 +1011,12 @@ void load_stats_map(const char * dump_file){
         
         stat_t * stat = (stat_t *)malloc(sizeof(stat_t));
         MALLOC_CHK(stat);
-        stat->chrom = (char *)malloc((chrom_len+1)*sizeof(char));
-        MALLOC_CHK(stat->chrom);
+        stat->contig = (char *)malloc((chrom_len+1)*sizeof(char));
+        MALLOC_CHK(stat->contig);
 
-        stat->chrom[chrom_len] = '\0';
+        stat->contig[chrom_len] = '\0';
 
-        r = fread(stat->chrom, sizeof(char), chrom_len, fp);
+        r = fread(stat->contig, sizeof(char), chrom_len, fp);
         ASSERT_MSG(r==chrom_len, "Error reading chrom from dump file: %s r:%ld\n", dump_file, r);
         r = fread(&stat->start, sizeof(int), 1, fp);
         ASSERT_MSG(r==1, "Error reading start from dump file: %s\n r:%ld", dump_file, r);
@@ -949,7 +1039,7 @@ void load_stats_map(const char * dump_file){
         r = fread(&stat->is_aln_cpg, sizeof(int), 1, fp);
         ASSERT_MSG(r==1, "Error reading is_aln_cpg from dump file: %s\n r:%ld", dump_file, r);
 
-        char *key = make_key(stat->chrom, stat->start, stat->end, stat->mod_code, stat->mod_strand);
+        char *key = make_key(stat->contig, stat->start, stat->end, stat->mod_code, stat->mod_strand);
         int ret;
         khiter_t k = kh_put(str, stats_map, key, &ret);
         kh_value(stats_map, k) = stat;
