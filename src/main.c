@@ -46,6 +46,8 @@ static char * outputfile = NULL;
 static int is_bedmethyl = 0;
 static int is_resuming = 0;
 static char * dumpfile = NULL;
+static int server_port = -1;
+pthread_t server_thread;
 
 void initialize() {
     init_meth(reffile);
@@ -67,13 +69,16 @@ void destroy() {
 }
 
 void print_usage(FILE * fp) {
-    fprintf(fp, "Usage: realfreq [options]\n");
+    fprintf(fp, "Usage: realfreq [options] -r FILE -o FILE\nrealfreq reads the input bam file path from stdin\n");
     fprintf(fp, "Options:\n");
-    fprintf(fp, "  -r, --reference FILE    reference file\n");
-    fprintf(fp, "  -o, --output FILE       methylation frequency output file\n");
-    fprintf(fp, "  -b, --bedmethyl         output in bedMethyl format\n");
-    fprintf(fp, "  -d, --dump FILE         dump file\n");
-    fprintf(fp, "  -s, --resume            resume from a dump file\n");
+    fprintf(fp, "  -h, --help                   print this help message\n");
+    fprintf(fp, "  -r FILE, --reference FILE    reference file\n");
+    fprintf(fp, "  -o FILE, --output FILE       methylation frequency output file\n");
+    fprintf(fp, "  -b, --bedmethyl              output in bedMethyl format\n");
+    fprintf(fp, "  -d FILE, --dump FILE         dump file\n");
+    fprintf(fp, "  -s, --resume                 resume from a dump file\n");
+    fprintf(fp, "  -c, --server PORT            start the server on PORT\n");
+    
 }
 
 void read_file_contents(char *filepath) {
@@ -130,10 +135,14 @@ void start_realfreq() {
 
 int main(int argc, char* argv[]) {
     //parse the user args
-    const char* optstring = "r:o:bd:s";
+    const char* optstring = "hr:o:bd:sc:";
     int opt;
     while ((opt = getopt(argc, argv, optstring)) != -1) {
         switch (opt) {
+            case 'h':
+                print_usage(stdout);
+                exit(EXIT_SUCCESS);
+                break;
             case 'r':
                 reffile = optarg;
                 break;
@@ -149,9 +158,13 @@ int main(int argc, char* argv[]) {
             case 's':
                 is_resuming = 1;
                 break;
+            case 'c':
+                server_port = atoi(optarg);
+                break;
             default:
                 print_usage(stderr);
                 exit(EXIT_FAILURE);
+                
         }
     }
 
@@ -172,12 +185,16 @@ int main(int argc, char* argv[]) {
 
     initialize();
 
-    pthread_t server_thread;
-    pthread_create(&server_thread, NULL, start_server, NULL);
+    if(server_port!=-1) {
+        pthread_create(&server_thread, NULL, start_server, (void *) &server_port);
+    }
+    
 
     start_realfreq();
 
-    pthread_join(server_thread, NULL);
+    if(server_port!=-1) {
+        pthread_join(server_thread, NULL);
+    }
     
     destroy();
 

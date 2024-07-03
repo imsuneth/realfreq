@@ -1,8 +1,8 @@
 # <em>realfreq</em>
 Real-time base modification frequency monitoring tool along with a real-time modification calling pipeline.
 
-## Installation
-### Building from source
+# Installation
+## Building from source
 ```bash
 git clone https://github.com/imsuneth/realfreq
 cd realfreq
@@ -10,15 +10,15 @@ cd realfreq
 make
 ```
 
-## Usage
 Append parent directory where binary <em>realfreq</em> is in to PATH variable by appending following line to the <em>~/.bashrc</em> file.
 ```bash
 export PATH=$PATH:/parent/dir/of/realfreq
 ```
 Make sure to run ```source ~/.bashrc``` in order to use <em>realfreq</em> on already opened terminals.
 
-### Run <em>realfreq</em> on a Minknow experiment directory
-#### 01. Execute the following command on a terminal.
+# Usages
+## Running <em>realfreq.sh</em> pipeline on a experiment directory
+### 01. Execute the following command on a terminal.
 ```bash
 ./scripts/realfreq.sh -m [directory] -g [guppy_bin] -f [reference] -x [reference_index] -e [model] [options ...]
 ```
@@ -39,29 +39,44 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 ./scripts/realfreq/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL
 ```
 
-#### 02. Start sequencing run on Minknow
-When <em>realfreq</em> finishes processing a new batch of reads, it writes the updated modification frequencies data to <em>freq.tsv</em> file inside <em>[directory]</em>.
+## Running <em>realfreq</em> alone
+<em>realfreq</em> takes the input BAM file path by reading the stdin. Therefore, BAM file path can be either piped to <em>realfreq</em> or a list of BAM file paths can be given in a file. Command for the two scenarios are as follows.
 
-## <em>realfreq</em> server
+Example commands
+```bash
+# using pipe
+echo /path/to/reads.bam | ./realfreq -r ref.fa -o freq.tsv
+# input a list of bam files
+./realfreq -r ref.fa -o freq.tsv < bams_list.txt
+```
 
-<em>realfreq</em> server starts automatically and provides an interface to access the real-time modification frequency information though simple socket connections.
+# <em>realfreq</em> server
 
-Sample commands
+<em>realfreq</em> server provides an interface to access the real-time modification frequency information using simple socket connections.
+
+<em>realfreq.sh</em> pipeline and <em>realfreq</em> doesn't start it unless specified by setting -c \<port> or --server \<port> flag. The server supports several query commands.
+
+Available query commands
+```bash
+help
+    show this help message
+get_contig:<contig>
+    query by contig
+get_range:<start_pos>:<end_pos>
+    query data between start and end positions (both inclusive)
+get_contig_range:<contig>:<start_pos>:<end_pos>
+    query by contig and between start and end positions
+get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>
+    query by contig and between start and end positions and by mod code
+```
+
+Sample query commands
 ```bash
 nc localhost 8080 <<< help
 nc localhost 8080 <<< get_contig:chr1
 nc localhost 8080 <<< get_range:1:100
 nc localhost 8080 <<< get_contig_range:chr22:18850302:49514860
 nc localhost 8080 <<< get_contig_range_mod:chr22:18850302:49514860:m
-```
-
-Available commands
-```bash
-help
-get_contig:<contig>
-get_range:<start_pos>:<end_pos>
-get_contig_range:<contig>:<start_pos>:<end_pos>
-get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>
 ```
 
 ## <em>realfreq</em> output

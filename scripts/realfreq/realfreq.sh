@@ -19,6 +19,7 @@
 #%    -e [model]                                    Model for guppy basecalling
 #%    -o [output]                                   Output file for modification frequency [default: freq.tsv]
 #%    -r                                            Resumes a previous live conversion
+#%    -c [port]                                     Server port for realfreq
 #%    -t [time]                                     Timeout in seconds [default: 21600]
 #%    -p [processes]                                Maximum number of parallel conversion processes [default: 1]
 #%
@@ -104,9 +105,10 @@ REF=
 REFIDX=
 MODEL=
 OUTPUT_FILE=
+server_port=""
 
 ## Handle flags
-while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:" o; do
+while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:" o; do
     case "${o}" in
         m)
             MONITOR_PARENT_DIR=${OPTARG}
@@ -164,6 +166,9 @@ while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:" o; do
         p)
             MAX_PROC=${OPTARG}
             ;;
+        c)
+            server_port=${OPTARG}
+            ;;
         *)
             usage
             ;;
@@ -212,6 +217,14 @@ if [ -z ${OUTPUT_FILE} ]; then
     OUTPUT_FILE="$MONITOR_PARENT_DIR/freq.tsv"
     echo -e "[$SCRIPT_NAME] Output file not set. Using default $MONITOR_PARENT_DIR"
 fi
+
+server_port_flag=
+if [ ! $server_port == "" ]; then
+    server_port_flag="-c $server_port"
+fi
+
+echo "port: $server_port"
+echo "server_port_flag: $server_port_flag"
 
 # wait till the monitor directory is available
 if [ ! -d $MONITOR_PARENT_DIR ]; then
@@ -316,7 +329,7 @@ catch_bam() {
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
-    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
     > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
 
 else # Else assume realtime analysis is desired
@@ -327,21 +340,21 @@ else # Else assume realtime analysis is desired
         echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
         > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
     else
         echo "[$SCRIPT_NAME] running" | tee $LOG
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
         > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
     fi
     echo "[$SCRIPT_NAME] No new pod5 files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
     echo "[$SCRIPT_NAME] converting left overs" | tee -a $LOG
     find $MONITOR_PARENT_DIR/ -name "*.pod5"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
+    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
     > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
 
 fi

@@ -39,15 +39,19 @@ SOFTWARE.
 #include <unistd.h> // read(), write(), close()
 #include <pthread.h>
 #define MAX 80
-#define PORT 8080 
 #define SA struct sockaddr
 
-char* help = "Available commands:\n \
+char* help = "Available query commands:\n \
             help\n \
+            \tshow this help message\n \
             get_contig:<contig>\n \
+            \tquery by contig\n \
             get_range:<start_pos>:<end_pos>\n \
+            \tquery data between start and end positions (both inclusive)\n \
             get_contig_range:<contig>:<start_pos>:<end_pos>\n \
-            get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n";
+            \tquery by contig and between start and end positions\n \
+            get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n \
+            \tquery by contig and between start and end positions and by mod code\n";
 
 /* 
 test commands:
@@ -72,29 +76,29 @@ void handle_request(int client_fd)
 
     char* tok;
     char* request = strtok(buff, "\r\n");
-    char* response = "Invalid request\n";
+    char* response = "Invalid query\n";
 
-    printf("request: %s\n", request); 
+    printf("query: %s\n", request); 
 
     if(strcmp(request, "help") == 0) {
         response = help;
     } else if (request == NULL) {
-        response = "Invalid request\n";
+        response = "Invalid query\n";
     } else {
         tok = strtok(request, ":");
         if(tok == NULL) {
-            response = "Invalid request\n";
+            response = "Invalid query\n";
         } else if(strcmp(tok, "get_contig_range") == 0) {
             char * req_contig = strtok(NULL, ":");
             char * req_start_pos = strtok(NULL, ":");
             char * req_end_pos = strtok(NULL, ":");
 
             if(req_contig == NULL || req_start_pos == NULL || req_end_pos == NULL) {
-                response = "Invalid request get_contig_range:<contig>:<start_pos>:<end_pos>\n";
+                response = "Invalid query. get_contig_range:<contig>:<start_pos>:<end_pos>\n";
             } else {
                 response = get_stats_contig_range(req_contig, atoi(req_start_pos), atoi(req_end_pos));
                 if (response == NULL) {
-                    response = "No data found\n";
+                    response = "No matching data found\n";
                 }
             }
 
@@ -103,11 +107,11 @@ void handle_request(int client_fd)
             char * req_end_pos = strtok(NULL, ":");
 
             if(req_start_pos == NULL || req_end_pos == NULL) {
-                response = "Invalid request get_range:<start_pos>:<end_pos>\n";
+                response = "Invalid query. get_range:<start_pos>:<end_pos>\n";
             } else {
                 response = get_stats_range(atoi(req_start_pos), atoi(req_end_pos));
                 if (response == NULL) {
-                    response = "No data found\n";
+                    response = "No matching data found\n";
                 }
             }
 
@@ -115,11 +119,11 @@ void handle_request(int client_fd)
             char * req_contig = strtok(NULL, ":");
 
             if(req_contig == NULL) {
-                response = "Invalid request get_contig:<contig>\n";
+                response = "Invalid query get_contig:<contig>\n";
             } else {
                 response = get_stats_contig(req_contig);
                 if (response == NULL) {
-                    response = "No data found\n";
+                    response = "No matching data found\n";
                 }
             }
 
@@ -130,17 +134,17 @@ void handle_request(int client_fd)
             char * req_mod_code = strtok(NULL, ":");
 
             if(req_contig == NULL || req_start_pos == NULL || req_end_pos == NULL || req_mod_code == NULL) {
-                response = "Invalid request get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n";
+                response = "Invalid query get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n";
             } else {
                 response = get_stats_contig_range_mod_code(req_contig, atoi(req_start_pos), atoi(req_end_pos), req_mod_code[0]);
                 if (response == NULL) {
-                    response = "No data found\n";
+                    response = "No matching data found\n";
                 }
             }
-        } 
-        else if(strcmp(tok, "list") == 0) {
-            response = "to be implemented\n";
+        } else {
+            response = "Invalid query\n";
         }
+        
     }
 
     // and send that buffer to client 
@@ -152,7 +156,8 @@ void handle_request(int client_fd)
 }
 
 
-void start_server(){
+void start_server(void* arg) {
+    int port = *(int*)arg;
     int sockfd;
     struct sockaddr_in servaddr;
 
@@ -175,12 +180,12 @@ void start_server(){
     // assign IP, PORT
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(PORT);
+    servaddr.sin_port = htons(port);
 
     // Binding newly created socket to given IP and verification
     while(1){
         if ((bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr))) != 0) {
-            ERROR("%s", "socket bind failed...retrying in 5s\n");
+            ERROR("socket bind to port %d failed...retrying in 5s\n", port);
             sleep(5);
         }
         else {
@@ -192,11 +197,11 @@ void start_server(){
     // Now server is ready to listen and verification
     while(1){
         if ((listen(sockfd, 5)) != 0) {
-            ERROR("%s", "listen failed...\n");
+            ERROR("listen on port %dfailed...\n", port);
             sleep(5);
         }
         else{
-            INFO("%s", "server listening..\n");
+            INFO("server listening on port %d..\n", port);
             break;
         }
             
@@ -209,7 +214,7 @@ void start_server(){
         len = sizeof(cli);
         client_fd = accept(sockfd, (struct sockaddr*)&cli, &len);
         if (client_fd < 0) {
-            ERROR("%s", "server acccept failed...\n");
+            ERROR("%s", "server acccept failed for client %d...\n", client_fd);
             sleep(5);
         }
         else {
@@ -222,4 +227,3 @@ void start_server(){
 
     
 }
-

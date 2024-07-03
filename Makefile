@@ -3,7 +3,7 @@ CC = gcc
 
 # Compiler flags
 CPPFLAGS += -Ihtslib/ -Iinclude/
-CFLAGS = -g -Wall -O2  -std=c99
+CFLAGS = -g -Wall -O0  -std=c99
 LDFLAGS  += $(LIBS) -lz -lm -lpthread
 
 # Source files
