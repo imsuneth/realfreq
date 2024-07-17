@@ -18,7 +18,14 @@ Make sure to run ```source ~/.bashrc``` in order to use <em>realfreq</em> on alr
 
 # Usages
 ## Running <em>realfreq.sh</em> pipeline on a experiment directory
-### 01. Execute the following command on a terminal.
+### Prerequisits
+Following tools should be installed and available as they are used inside the pipeline
+- [blue-crab](https://github.com/Psy-Fer/blue-crab)
+- [buttery-eel](https://github.com/Psy-Fer/buttery-eel)
+- [samtools](https://www.htslib.org/download/)
+- [minimap2](https://github.com/lh3/minimap2)
+
+If prerequisits are availbale, execute the following command on a terminal.
 ```bash
 ./scripts/realfreq.sh -m [directory] -g [guppy_bin] -f [reference] -x [reference_index] -e [model] [options ...]
 ```
