@@ -30,13 +30,14 @@ SOFTWARE.
 
 void simple_meth_view(core_t* core);
 void meth_freq(core_t* core);
-void init_meth(const char * ref);
+void init_meth(opt_t opt);
 void destroy_meth();
 void dump_stats_map(const char * stats_file);
-void print_stats(FILE * output_file, int is_bedmethyl);
+void print_stats(FILE * output_file, int is_bedmethyl, char mod_code);
 int get_stats_len();
 void load_stats_map(const char * dump_file);
 void dump_stats_map(const char * dump_file);
+void write_output(char *output_file, int is_bedmethyl, char mod_code);
 
 char* get_stats_range(int start, int end);
 char* get_stats_contig(const char* contig);

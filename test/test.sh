@@ -38,14 +38,14 @@ echo "Test 1: tsv output"
 echo_bams | ex ./realfreq -d test/tmp/test1.dump.tmp -r test/tmp/genome_chr22.fa -o test/tmp/test1.tsv >> test/tmp/test1.log || die "Test 1 failed running realfreq"
 sort -k1,1 -k2,2n test/expected/test1.tsv > test/tmp/test1.expected.sorted.tsv
 sort -k1,1 -k2,2n test/tmp/test1.tsv > test/tmp/test1.sorted.tsv
-diff test/tmp/test1.expected.sorted.tsv test/tmp/test1.sorted.tsv || die "Test 1: diff failed"
+diff -q test/tmp/test1.expected.sorted.tsv test/tmp/test1.sorted.tsv || die "Test 1: diff failed"
 rm test/tmp/test1.tsv test/tmp/test1.log test/tmp/test1.expected.sorted.tsv test/tmp/test1.sorted.tsv test/tmp/test1.dump.tmp
 
 echo "Test 2: bedmethyl output"
 echo_bams | ex ./realfreq -d test/tmp/test2.dump.tmp -r test/tmp/genome_chr22.fa -o test/tmp/test2.bedmethyl -b >> test/tmp/test2.log || die "Test 2 failed running realfreq"
 sort -k1,1 -k2,2n test/expected/test2.bedmethyl > test/tmp/test2.expected.sorted.bedmethyl
 sort -k1,1 -k2,2n test/tmp/test2.bedmethyl > test/tmp/test2.sorted.bedmethyl
-diff test/tmp/test2.expected.sorted.bedmethyl test/tmp/test2.sorted.bedmethyl || die "Test 2: diff failed"
+diff -q test/tmp/test2.expected.sorted.bedmethyl test/tmp/test2.sorted.bedmethyl || die "Test 2: diff failed"
 rm test/tmp/test2.bedmethyl test/tmp/test2.log test/tmp/test2.expected.sorted.bedmethyl test/tmp/test2.sorted.bedmethyl test/tmp/test2.dump.tmp
 
 echo "Test 3a: dumping"
@@ -54,7 +54,7 @@ echo "Test 3b: loading"
 echo "" | ex ./realfreq -d test/tmp/test3.dump.tmp -s -r test/tmp/genome_chr22.fa -o test/tmp/test3.out2.tsv >> test/tmp/test3.log2.log || die "Test 3b failed running realfreq - resume"
 sort -k1,1 -k2,2n test/tmp/test3.out1.tsv > test/tmp/test3.out1.sorted.tsv
 sort -k1,1 -k2,2n test/tmp/test3.out2.tsv > test/tmp/test3.out2.sorted.tsv
-diff test/tmp/test3.out1.sorted.tsv test/tmp/test3.out2.sorted.tsv || die "Test 3: diff failed"
+diff -q test/tmp/test3.out1.sorted.tsv test/tmp/test3.out2.sorted.tsv || die "Test 3: diff failed"
 rm test/tmp/test3.dump.tmp test/tmp/test3.out1.tsv test/tmp/test3.out2.tsv test/tmp/test3.log1.log test/tmp/test3.log2.log test/tmp/test3.out1.sorted.tsv test/tmp/test3.out2.sorted.tsv
 
 echo "ALL TESTS PASSED!"

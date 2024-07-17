@@ -62,16 +62,16 @@ test commands:
     nc localhost 8080 <<< get_contig_range_mod:chr22:18850302:49514860:m
 */
 
-void handle_request(int client_fd) 
+void * handle_request(void * clientfd) 
 { 
     char buff[MAX]; 
-    int n; 
-    bzero(buff, MAX); 
+    memset(buff, 0, MAX);
+    int client_fd = *((int *)clientfd);
 
     // read the message from client
     if (read(client_fd, buff, sizeof(buff)) == 0) {
         INFO("%s", "client disconnected\n");
-        return;
+        pthread_exit(0);
     }
 
     char* tok;
@@ -153,10 +153,11 @@ void handle_request(int client_fd)
     }
     
     close(client_fd);
+    pthread_exit(0);
 }
 
 
-void start_server(void* arg) {
+void * start_server(void* arg) {
     int port = *(int*)arg;
     int sockfd;
     struct sockaddr_in servaddr;
@@ -174,8 +175,7 @@ void start_server(void* arg) {
         }
     }
     
-    
-    bzero(&servaddr, sizeof(servaddr));
+    memset(&servaddr, 0, sizeof(servaddr));
 
     // assign IP, PORT
     servaddr.sin_family = AF_INET;
@@ -210,16 +210,17 @@ void start_server(void* arg) {
     while(1) {
         // Accept the data packet from client and verification
         struct sockaddr_in cli;
-        int client_fd, len;
+        u_int32_t client_fd;
+        u_int32_t len;
         len = sizeof(cli);
         client_fd = accept(sockfd, (struct sockaddr*)&cli, &len);
         if (client_fd < 0) {
-            ERROR("%s", "server acccept failed for client %d...\n", client_fd);
+            ERROR("server acccept failed for client %d...\n", client_fd);
             sleep(5);
         }
         else {
             pthread_t client_thread;
-            pthread_create(&client_thread, NULL, handle_request, (void*)client_fd);
+            pthread_create(&client_thread, NULL, handle_request, (void*) &client_fd);
             pthread_detach(client_thread);
         }
         

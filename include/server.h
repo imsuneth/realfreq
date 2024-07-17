@@ -27,4 +27,4 @@ SOFTWARE.
 
 ******************************************************************************/
 
-void start_server(void* arg);
+void * start_server(void* arg);

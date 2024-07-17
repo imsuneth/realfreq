@@ -62,6 +62,14 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
+    double mod_thresh;
+    int8_t bedmethyl_out;
+    int8_t is_resuming;
+    char* ref_file;
+    char* out_file;
+    char* dump_file;
+    char mod_code;
+
 } opt_t;
 
 
