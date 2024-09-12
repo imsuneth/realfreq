@@ -36,8 +36,10 @@ SOFTWARE.
 #include <stdlib.h>
 #include <htslib/hts.h>
 #include <htslib/sam.h>
+#include "khash.h"
+#include <pthread.h>
 
-#define MINIMOD_VERSION "0.1.0"
+#define VERSION "0.1.0"
 
 /*******************************************************
  * flags related to the user specified options (opt_t) *
@@ -49,6 +51,9 @@ SOFTWARE.
 
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
+
+#define N_BASES 6 // A, C, G, T, N, U
+#define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
 /* user specified options */
 typedef struct {
@@ -62,32 +67,63 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
-    double mod_thresh;
-    int8_t bedmethyl_out;
-    int8_t is_resuming;
-    char* ref_file;
-    char* out_file;
-    char* dump_file;
-    char mod_code;
+    int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
+    char * mod_threshes_str;
+    char* mod_codes_str;
+    char* output_file;
+    int progress_interval;
 
+    int8_t subtool; //0:view, 1:mod-freq
+
+    uint8_t n_mods;
+
+    char * ref_file;
+    char * dump_file;
+    int8_t is_resuming;
+    int server_port;
 } opt_t;
 
+typedef struct {
+    uint16_t n_called;
+    uint16_t n_mod;
+    char * key;
+} freq_t;
+
+typedef struct {
+    int ref_pos;
+    uint8_t mod_prob;
+} modbase_t;
+
+KHASH_MAP_INIT_STR(freqm, freq_t *);
+enum subtool {VIEW=0, MOD_FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
+    //bam records
+    bam1_t** bam_recs;
+    int32_t cap_bam_recs;
+    int32_t n_bam_recs;
 
-    int32_t n_rec;
-    int32_t capacity_rec;
+    //mod tags
+    const char ** mm;
+    uint32_t * ml_lens;
+    uint8_t ** ml;
 
-    char **mem_records;
-    size_t *mem_bytes;
+    // alignment
+    int ** aln;
+    int *** bases_pos;
+    int ** skip_counts;
+    char ** mod_codes;
+    uint8_t * mod_codes_cap;
 
     double *means;
+    // view output
+    modbase_t *** modbases;
 
     //stats
     int64_t sum_bytes;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-
+    int32_t skipped_reads; //reads skipped due to various reasons
+    int32_t skipped_reads_bytes;
 
 } db_t;
 
@@ -125,7 +161,9 @@ typedef struct {
 
     //stats //set by output_db
     int64_t sum_bytes;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+    int64_t total_reads; //total number entries in the bam file 
+    int64_t skipped_reads; //reads skipped due to various reasons
+    int64_t skipped_reads_bytes;
 
 } core_t;
 
@@ -182,11 +220,14 @@ void process_single(core_t* core, db_t* db, int32_t i);
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db);
 
+/* write the output for a all processed data batches */
+void output_core(core_t* core);
+
 /* partially free a data batch - only the read dependent allocations are freed */
-void free_db_tmp(db_t* db);
+void free_db_tmp(core_t* core, db_t* db);
 
 /* completely free a data batch */
-void free_db(db_t* db);
+void free_db(core_t* core, db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);

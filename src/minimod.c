@@ -36,12 +36,13 @@ SOFTWARE.
 #include <string.h>
 
 #include "minimod.h"
+#include "mod.h"
 #include "misc.h"
 #include "error.h"
+#include "khash.h"
 
 #include <sys/wait.h>
 #include <unistd.h>
-
 
 /* initialise the core data structure */
 core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
@@ -60,10 +61,16 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
 
     core->sum_bytes=0;
     core->total_reads=0;
+    core->skipped_reads=0;
+    core->skipped_reads_bytes=0;
 
     // load bam file
     core->bam_fp = sam_open(bamfilename, "r");
     NULL_CHK(core->bam_fp);
+
+    if(opt.num_thread > 1){
+        hts_set_threads(core->bam_fp, opt.num_thread);
+    }
 
     // load bam index file
     core->bam_idx = sam_index_load(core->bam_fp, bamfilename);
@@ -117,6 +124,10 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
         }
     }
 
+    // if (opt.subtool == MOD_FREQ) {
+    //     core->freq_map = kh_init(freqm);
+    // }
+
 
 #ifdef HAVE_ACC
     if (core->opt.flag & MINIMOD_ACC) {
@@ -124,7 +135,7 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
     }
 #endif
 
-
+    
     return core;
 }
 
@@ -145,6 +156,10 @@ void free_core(core_t* core,opt_t opt) {
     hts_idx_destroy(core->bam_idx);
     sam_close(core->bam_fp);
 
+    // if (opt.subtool == MOD_FREQ) {
+    //     destroy_freq_map(core->freq_map);
+    // }
+
 #ifdef HAVE_ACC
     if (core->opt.flag & MINIMOD_ACC) {
         VERBOSE("%s","Freeing accelator");
@@ -159,21 +174,55 @@ db_t* init_db(core_t* core) {
     db_t* db = (db_t*)(malloc(sizeof(db_t)));
     MALLOC_CHK(db);
 
-    db->capacity_rec = core->opt.batch_size;
-    db->n_rec = 0;
+    db->cap_bam_recs = core->opt.batch_size;
+    db->n_bam_recs = 0;
 
-    db->mem_records = (char**)(calloc(db->capacity_rec,sizeof(char*)));
-    MALLOC_CHK(db->mem_records);
-    db->mem_bytes = (size_t*)(calloc(db->capacity_rec,sizeof(size_t)));
-    MALLOC_CHK(db->mem_bytes);
+    db->bam_recs = (bam1_t**)(malloc(sizeof(bam1_t*) * db->cap_bam_recs));
+    MALLOC_CHK(db->bam_recs);
 
+    db->mm = (const char**)(malloc(sizeof(char*) * db->cap_bam_recs));
+    MALLOC_CHK(db->mm);
+    db->ml_lens = (uint32_t*)(malloc(sizeof(uint32_t) * db->cap_bam_recs));
+    MALLOC_CHK(db->ml_lens);
+    db->ml = (uint8_t**)(malloc(sizeof(uint8_t*) * db->cap_bam_recs));
+    MALLOC_CHK(db->ml);
+    db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+    MALLOC_CHK(db->aln);
+    db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
+    MALLOC_CHK(db->bases_pos);
+    db->skip_counts = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+    MALLOC_CHK(db->skip_counts);
+    db->mod_codes = (char**)(malloc(sizeof(char*) * db->cap_bam_recs));
+    MALLOC_CHK(db->mod_codes);
+    db->mod_codes_cap = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
+    MALLOC_CHK(db->mod_codes_cap);
+    db->modbases = (modbase_t***)malloc(sizeof(modbase_t**) * db->cap_bam_recs);
+    MALLOC_CHK(db->modbases);
 
-    db->means = (double*)calloc(db->capacity_rec,sizeof(double));
+    int32_t i = 0;
+    for (i = 0; i < db->cap_bam_recs; ++i) {
+        db->bam_recs[i] = bam_init1();
+        NULL_CHK(db->bam_recs[i]);
+
+        db->bases_pos[i] = (int**)malloc(sizeof(int*)*N_BASES);
+        MALLOC_CHK(db->bases_pos[i]);
+
+        db->mod_codes[i] = (char*)malloc(sizeof(char)*(core->opt.n_mods+1)); //+1 for null terminator
+        MALLOC_CHK(db->mod_codes[i]);
+
+        db->mod_codes_cap[i] = core->opt.n_mods;
+
+        db->modbases[i] = (modbase_t**)malloc(sizeof(modbase_t*)*core->opt.n_mods);
+        MALLOC_CHK(db->modbases[i]);
+
+    }
+
+    db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
-    db->total_reads=0;
     db->sum_bytes=0;
-
+    db->skipped_reads=0;
+    db->skipped_reads_bytes=0;
 
     return db;
 }
@@ -183,22 +232,82 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
     double load_start = realtime();
 
-    db->n_rec = 0;
+    db->n_bam_recs = 0;
     db->sum_bytes = 0;
-    db->total_reads = 0;
+    db->skipped_reads = 0;
+    db->skipped_reads_bytes = 0;
 
-    ret_status_t status={0,0};
-    //int32_t i = 0;
-    while (db->n_rec < db->capacity_rec && db->sum_bytes<core->opt.batch_size_bytes) {
-        //i=db->n_rec;
+    ret_status_t status = {0, 0};
+    uint32_t l_qseq;
+    int32_t i;
+    bam1_t* rec;
 
+    while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes < core->opt.batch_size_bytes) {
+        if (sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs]) < 0) {
+            break;
+        }
+        
+        i = db->n_bam_recs;
+        rec = db->bam_recs[i];
+        l_qseq = rec->core.l_qseq;
+        
+        if(rec->core.flag & BAM_FUNMAP){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
+                continue;
+            }
+
+            if(rec->core.l_qseq == 0){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
+                continue;
+            }
+
+        const char *mm = get_mm_tag_ptr(rec);
+        if (!mm) {
+            db->skipped_reads++;
+            db->skipped_reads_bytes += rec->l_data;
+            LOG_TRACE("Skipping read %s with empty MM tag", bam_get_qname(rec));
+            continue;
+        }
+
+        uint32_t ml_len;
+        uint8_t *ml = get_ml_tag(rec, &ml_len);
+        if (!ml) {
+            db->skipped_reads++;
+            db->skipped_reads_bytes += rec->l_data;
+            continue;
+        }
+
+        db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+
+        for(int j=0;j<core->opt.n_mods;j++){
+            db->modbases[i][j] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
+            MALLOC_CHK(db->modbases[i][j]);
+        }
+
+        for(int j=0;j<N_BASES;j++){
+            db->bases_pos[i][j] = (int*)malloc(sizeof(int)*l_qseq);
+            MALLOC_CHK(db->bases_pos[i][j]);
+        }
+
+        db->skip_counts[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+        MALLOC_CHK(db->skip_counts[i]);
+
+        db->mm[i] = mm;
+        db->ml_lens[i] = ml_len;
+        db->ml[i] = ml;
+
+        db->n_bam_recs++;
+        db->sum_bytes += rec->l_data;
     }
 
-    status.num_reads=db->n_rec;
-    status.num_bytes=db->sum_bytes;
+    status.num_reads = db->n_bam_recs;
+    status.num_bytes = db->sum_bytes;
 
-    double load_end = realtime();
-    core->load_db_time += (load_end-load_start);
+    core->load_db_time += realtime() - load_start;
 
     return status;
 }
@@ -206,32 +315,21 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
 void parse_single(core_t* core,db_t* db, int32_t i){
 
-    assert(db->mem_bytes[i]>0);
-    assert(db->mem_records[i]!=NULL);
 
 
 }
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
-void mean_single(core_t* core,db_t* db, int32_t i){
-
-    // uint64_t len_raw_signal = rec->len_raw_signal;
-
-    // if(len_raw_signal>0){
-    //     double sum = 0;
-    //     for(uint64_t i=0;i<len_raw_signal;i++){
-    //         sum += pA;
-    //     }
-    //     double mean = sum/len_raw_signal;
-    //     db->means[i]=mean;
-    // }
-
-}
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-    parse_single(core,db,i);
-    //mean_single(core,db,i);
+
+    if(core->opt.subtool==VIEW || core->opt.subtool==MOD_FREQ){
+        modbases_single(core,db,i);
+    }else{
+        ERROR("Unknown subtool %d", core->opt.subtool);
+    }
+
 }
 
 void mean_db(core_t* core, db_t* db) {
@@ -244,7 +342,7 @@ void mean_db(core_t* core, db_t* db) {
 
     if (!(core->opt.flag & MINIMOD_ACC)) {
         //fprintf(stderr, "cpu\n");
-        work_db(core,db,mean_single);
+        // work_db(core,db,mean_single);
     }
 }
 
@@ -276,37 +374,79 @@ void process_db(core_t* core,db_t* db){
 void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
-
-    int32_t i = 0;
-    for (i = 0; i < db->n_rec; i++) {
-
+    if(core->opt.subtool == VIEW){
+        // print_view_output(core, db);
+    } else if(core->opt.subtool == MOD_FREQ){
+        update_freq_map(core, db);
     }
 
     core->sum_bytes += db->sum_bytes;
-    core->total_reads += db->total_reads;
+    core->total_reads += db->n_bam_recs + db->skipped_reads;
+    core->skipped_reads += db->skipped_reads;
+    core->skipped_reads_bytes += db->skipped_reads_bytes;
 
-    //core->read_index = core->read_index + db->n_rec;
+    //core->read_index = core->read_index + db->n_bam_recs;
     double output_end = realtime();
     core->output_time += (output_end-output_start);
 
 }
 
+void output_core(core_t* core) {
+    double output_start = realtime();
+
+    if(core->opt.subtool == MOD_FREQ){
+        print_freq_output(core->opt);
+        dump_stats_map(core->opt.dump_file);
+    }
+
+    double output_end = realtime();
+    core->output_time += (output_end-output_start);
+}
+
 /* partially free a data batch - only the read dependent allocations are freed */
-void free_db_tmp(db_t* db) {
+void free_db_tmp(core_t* core, db_t* db) {
     int32_t i = 0;
-    for (i = 0; i < db->n_rec; ++i) {
-        free(db->mem_records[i]);
+    for (i = 0; i < db->n_bam_recs; i++) {        
+        free(db->ml[i]);
+        free(db->aln[i]);
+        for(int j=0;j<core->opt.n_mods;j++){
+            free(db->modbases[i][j]);
+        }
+
+        for(int b=0;b<N_BASES;b++){
+            free(db->bases_pos[i][b]);
+        }
+
+        free(db->skip_counts[i]);
+
     }
 }
 
 /* completely free a data batch */
-void free_db(db_t* db) {
+void free_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
-    for (i = 0; i < db->capacity_rec; ++i) {
+    
+    // free the rest of the records
+    for (i = 0; i < db->cap_bam_recs; i++) {
+        free(db->modbases[i]);
+
+        free(db->mod_codes[i]);
+
+        free(db->bases_pos[i]);
+        bam_destroy1(db->bam_recs[i]);
     }
-    free(db->mem_records);
-    free(db->mem_bytes);
+
+    free(db->skip_counts);
+    free(db->mod_codes);
+    free(db->mod_codes_cap);
+    free(db->modbases);
+    free(db->bases_pos);
+    free(db->ml_lens);
+    free(db->mm);
+    free(db->ml);
+    free(db->aln);
+    free(db->bam_recs);
     free(db->means);
     free(db);
 }
@@ -320,12 +460,12 @@ void init_opt(opt_t* opt) {
 
     opt->debug_break=-1;
 
-    opt->mod_code = 'm';
-    opt->mod_thresh = 0.2;
+    opt->mod_codes_str = NULL;
+    opt->mod_threshes_str = NULL;
+    opt->progress_interval = 0;
+    opt->output_file = NULL;
     opt->is_resuming = 0;
-    opt->dump_file = NULL;
-    opt->bedmethyl_out = 0;
-    opt->out_file = NULL;
+    opt->server_port = -1; //no server by default
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

@@ -28,7 +28,8 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "error.h"
-#include "meth.h"
+#include "mod.h"
+#include "minimod.h"
 #include <stdio.h> 
 #include <netdb.h> 
 #include <netinet/in.h> 
