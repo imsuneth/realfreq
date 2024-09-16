@@ -106,9 +106,10 @@ REFIDX=
 MODEL=
 OUTPUT_FILE=
 server_port=""
+THREADS=
 
 ## Handle flags
-while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:" o; do
+while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:k:" o; do
     case "${o}" in
         m)
             MONITOR_PARENT_DIR=${OPTARG}
@@ -169,6 +170,9 @@ while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:" o; do
         c)
             server_port=${OPTARG}
             ;;
+        k)
+            THREADS=${OPTARG}
+            ;;
         *)
             usage
             ;;
@@ -215,16 +219,19 @@ fi
 # If output file not set
 if [ -z ${OUTPUT_FILE} ]; then
     OUTPUT_FILE="$MONITOR_PARENT_DIR/freq.tsv"
-    echo -e "[$SCRIPT_NAME] Output file not set. Using default $MONITOR_PARENT_DIR"
+    echo -e "[$SCRIPT_NAME] Output file not set. Using default $OUTPUT_FILE"
+fi
+
+# if threads not set
+if [ -z ${THREADS} ]; then
+    THREADS=8
+    echo -e "[$SCRIPT_NAME] Threads not set. Using default $THREADS"
 fi
 
 server_port_flag=
 if [ ! $server_port == "" ]; then
-    server_port_flag="-c $server_port"
+    server_port_flag="-s $server_port"
 fi
-
-echo "port: $server_port"
-echo "server_port_flag: $server_port_flag"
 
 # wait till the monitor directory is available
 if [ ! -d $MONITOR_PARENT_DIR ]; then
@@ -238,17 +245,11 @@ DUMP_FILE="$MONITOR_PARENT_DIR/dump.tmp"
 
 # set the temporary file and log file
 [ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realfreq_attempted_list.log
-echo "[$SCRIPT_NAME] Temporary file location that saves the state $TMP_FILE_PATH"
 [ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realfreq_failed_list.log
-echo "[$SCRIPT_NAME] Any pod5 files that failed conversions will be written to $FAILED_LIST"
-[ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq.log
-echo "[$SCRIPT_NAME] Master log file location ${LOG}"
+[ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq_script.log
 MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #trace of the monitor for debugging
-echo "[$SCRIPT_NAME] Monitor trace log ${MONITOR_TRACE}"
 START_END_TRACE=${MONITOR_PARENT_DIR}/realfreq_start_end_trace.log          #trace for debugging
-echo "[$SCRIPT_NAME] Start end trace log ${START_END_TRACE}"
 MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
-echo "[$SCRIPT_NAME] Idle time with no pod5 files to end the program ${TIME_INACTIVE} seconds"
 test -d ${MONITOR_PARENT_DIR} || { echo "[$SCRIPT_NAME] Monitor directory does not exist!"; exit 1; }
 [ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
 [ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
@@ -264,6 +265,26 @@ ${MINIMAP2} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] minimap2 not
 ${SAMTOOLS} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] samtools not found! Either put samtools under path or set SAMTOOLS variable, e.g.,export SAMTOOLS=/path/to/samtools"$NORMAL; exit 1;}
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
 
+#== Echo the options ==#
+echo "[$SCRIPT_NAME] Current options:"
+echo -e "[$SCRIPT_NAME]\tMonitor directory:\t $MONITOR_PARENT_DIR"
+echo -e "[$SCRIPT_NAME]\tGuppy binary:\t\t $GUPPY_BIN"
+echo -e "[$SCRIPT_NAME]\tReference genome:\t $REF"
+echo -e "[$SCRIPT_NAME]\tReference genome index:\t $REFIDX"
+echo -e "[$SCRIPT_NAME]\tModel:\t\t\t $MODEL"
+echo -e "[$SCRIPT_NAME]\tOutput file:\t\t $OUTPUT_FILE"
+echo -e "[$SCRIPT_NAME]\tDump file:\t\t $DUMP_FILE"
+echo -e "[$SCRIPT_NAME]\tResuming:\t\t $resuming"
+echo -e "[$SCRIPT_NAME]\tRealtime:\t\t $realtime"
+echo -e "[$SCRIPT_NAME]\tServer port:\t\t $server_port"
+echo -e "[$SCRIPT_NAME]\tProcessed list:\t\t $TMP_FILE_PATH"
+echo -e "[$SCRIPT_NAME]\tFailed list:\t\t $FAILED_LIST"
+echo -e "[$SCRIPT_NAME]\tLog file:\t\t $LOG"
+echo -e "[$SCRIPT_NAME]\tMonitor trace:\t\t $MONITOR_TRACE"
+echo -e "[$SCRIPT_NAME]\tStart end trace:\t $START_END_TRACE"
+echo -e "[$SCRIPT_NAME]\tIdle time:\t\t $TIME_INACTIVE"
+echo -e "[$SCRIPT_NAME]\tMax pipeline processes:\t $MAX_PROC"
+echo -e "[$SCRIPT_NAME]\tPipeline threads:\t $THREADS"
 #== Begin Run ==#
 
 # Warn before cleaning logs
@@ -279,6 +300,7 @@ if ! $resuming && ! $say_yes; then # If not resuming
                         test -e $MONITOR_TRACE && rm $MONITOR_TRACE # Empty log file
                         test -e $START_END_TRACE && rm $START_END_TRACE # Empty log file
                         test -e $FAILED_LIST && rm $FAILED_LIST # Empty log file
+                        test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH # Empty log file
                         break
                         ;;
 
@@ -327,10 +349,12 @@ catch_bam() {
 
 
 if ! $realtime; then # If non-realtime option set
-    echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee $LOG
+    touch $DUMP_FILE || { echo "[$SCRIPT_NAME] Could not create dump file $DUMP_FILE. Exiting." | tee $LOG; exit 1; }
+    echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee -a $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
-    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
-    > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
+    find $MONITOR_PARENT_DIR/ -name "*.pod5" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG | \
+    catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF
+    > >(tee -a $TMP_FILE_PATH) 2> >(tee -a $LOG)
 
 else # Else assume realtime analysis is desired
 
@@ -338,24 +362,38 @@ else # Else assume realtime analysis is desired
     # Close after timeout met
     if $resuming; then # If resuming option set
         echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
+        if [ ! -e $DUMP_FILE ]; then
+            echo "[$SCRIPT_NAME] Dump file $DUMP_FILE not found. Exiting." | tee -a $LOG
+            exit 1
+        fi
+        touch $DUMP_FILE || { echo "[$SCRIPT_NAME] Could not create dump file $DUMP_FILE. Exiting." | tee -a $LOG; exit 1; }
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
-        > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | \
+        catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -r -l $TMP_FILE_PATH $REF || { echo "[$SCRIPT_NAME] Realfreq failed processing $BAM_FILE. Try resuming." | tee -a $FAILED_LIST | tee -a $LOG; exit 1; }
+        > >(tee -a $TMP_FILE_PATH) 2> >(tee -a $LOG)
     else
-        echo "[$SCRIPT_NAME] running" | tee $LOG
+        touch $DUMP_FILE || { echo "[$SCRIPT_NAME] Could not create dump file $DUMP_FILE. Exiting." | tee $LOG; exit 1; }
+        echo "[$SCRIPT_NAME] running" | tee -a $LOG
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
         "$SCRIPT_PATH"/monitor/monitor.sh -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
-        > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | \
+        catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -l $TMP_FILE_PATH $REF
+        > >(tee -a $TMP_FILE_PATH) 2> >(tee -a $LOG)
     fi
+    if [ ! -e $DUMP_FILE ]; then
+        echo "[$SCRIPT_NAME] Dump file $DUMP_FILE not found. Exiting." | tee -a $LOG
+        exit 1
+    fi
+    touch $DUMP_FILE || { echo "[$SCRIPT_NAME] Could not create dump file $DUMP_FILE. Exiting." | tee -a $LOG; exit 1; }
     echo "[$SCRIPT_NAME] No new pod5 files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
     echo "[$SCRIPT_NAME] converting left overs" | tee -a $LOG
     find $MONITOR_PARENT_DIR/ -name "*.pod5"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG | catch_bam | realfreq ${server_port_flag} -s -d $DUMP_FILE -r $REF -o $OUTPUT_FILE 
-    > >(tee -a $TMP_FILE_PATH) 2> >(tee $LOG)
+    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG | \
+    catch_bam | realfreq ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -r -l $TMP_FILE_PATH $REF
+    > >(tee -a $TMP_FILE_PATH) 2> >(tee -a $LOG)
 
 fi
 
@@ -363,7 +401,7 @@ test -e $FAILED_LIST && echo -e $RED"[$SCRIPT_NAME] $(wc -l $FAILED_LIST) files 
 NUMPOD5=$(find $MONITOR_PARENT_DIR/ -name '*.pod5' | wc -l)
 NUMBAM=$(find $MONITOR_PARENT_DIR/ -name '*.remora.bam' | wc -l)
 if [ ${NUMPOD5} -ne ${NUMBAM} ] ; then
-    echo -e $RED"[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBAM remora bam files. Check the logs for any failures."$NORMAL | tee -a $LOG
+    echo -e $RED"[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBAM bam files. Check the logs for any failures."$NORMAL | tee -a $LOG
 else
     echo "[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBAM blow5 files." | tee -a $LOG
 fi

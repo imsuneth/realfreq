@@ -26,5 +26,12 @@ SOFTWARE.
 
 
 ******************************************************************************/
+#define TIMEOUT 60
+
+typedef struct {
+    int port;
+    khash_t(freqm)* freq_map;
+} server_args_t;
 
 void * start_server(void* arg);
+

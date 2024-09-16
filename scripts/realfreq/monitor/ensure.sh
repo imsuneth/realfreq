@@ -122,11 +122,11 @@ while read filename; do
     if echo $filename | grep -q '\.pod5$'; then # If it is a pod5 file
 
         if $RESUME; then # If resume option set
-            grep -q "/$prefix\.pod5$" "$TMP_FILE" # Check if filename exists in temp files
+            grep -q "$prefix" "$TMP_FILE" # Check if filename exists in temp files
 
             if [ $? -eq "0" ]; then # If the file has been processed
                 ((i_old ++))
-                >&2 echo -e "[ensure.sh] Already converted file ($i_old): $filename"
+                >&2 echo -e "[ensure.sh] Already processed file ($i_old): $filename"
                 continue # Wait for next input
 
             else # Else it is new
@@ -138,7 +138,7 @@ while read filename; do
 
         echo $filename # Output pod5 filename
         TIME=$(date)
-        echo -e "[ensure.sh] "$filename"\t"${TIME} >> ${LOG}
+        echo -e "[ensure.sh]\t"$filename"\t"${TIME} >> ${LOG}
 
     fi
 done

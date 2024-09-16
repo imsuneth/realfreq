@@ -395,8 +395,8 @@ void output_core(core_t* core) {
     double output_start = realtime();
 
     if(core->opt.subtool == MOD_FREQ){
-        print_freq_output(core->opt);
-        dump_stats_map(core->opt.dump_file);
+        print_freq_output(core->opt, core->freq_map);
+        dump_stats_map(core->opt.dump_file, core->freq_map);
     }
 
     double output_end = realtime();
@@ -466,6 +466,7 @@ void init_opt(opt_t* opt) {
     opt->output_file = NULL;
     opt->is_resuming = 0;
     opt->server_port = -1; //no server by default
+    opt->log_file = NULL;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

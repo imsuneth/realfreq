@@ -33,7 +33,6 @@ SOFTWARE.
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "logger.h"
 #include "mod.h"
 #include "error.h"
 #include "ref.h"
@@ -56,14 +55,14 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);                                             //7
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);                                                        //8
     fprintf(fp_help,"   -d FILE                    dump file [%s]\n", opt.dump_file);                                                                                           //9
-    fprintf(fp_help,"   -r                         resume from dump file [%s]\n", (opt.is_resuming?"yes":"no"));                                                                //10
-    fprintf(fp_help,"   -s PORT                    start server on PORT [%d]\n", opt.server_port);                                                                              //11
-    fprintf(fp_help,"   -v INT                     verbosity level [%d]\n",(int)get_log_level());                                                                               //12
-    fprintf(fp_help,"   -V                         print version\n");                                                                                                           //13
+    fprintf(fp_help,"   -l FILE                    progress log file [%s]\n", opt.log_file);                                                                                    //10
+    fprintf(fp_help,"   -r                         resume from dump file [%s]\n", (opt.is_resuming?"yes":"no"));                                                                //11
+    fprintf(fp_help,"   -s PORT                    start server on PORT [%d]\n", opt.server_port);                                                                              //12
+    fprintf(fp_help,"   -v INT                     verbosity level [%d]\n",(int)get_log_level());                                                                               //13
+    fprintf(fp_help,"   -V                         print version\n");                                                                                                           //14
 }
 
-void start_realfreq(opt_t opt) {
-    
+void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
     char *bam_file = (char *)malloc(FILEPATH_LEN * sizeof(char));
     INFO("%s", "reading file path from stdin\n");
 
@@ -73,17 +72,17 @@ void start_realfreq(opt_t opt) {
         int ret = fscanf(stdin, "%s", bam_file);
         if (ferror(stdin)) {
             INFO("%s", "error reading from stdin\n");
-            print_freq_output(opt);
+            print_freq_output(opt, freq_map);
             break;
         }
         if (feof(stdin)) {
             INFO("%s", "end of stdin\n");
-            print_freq_output(opt);
+            print_freq_output(opt, freq_map);
             break;
         }
         if(ret!=1) {
             INFO("%s", "error reading from stdin\n");
-            print_freq_output(opt);
+            print_freq_output(opt, freq_map);
             break;
         }
         
@@ -92,6 +91,7 @@ void start_realfreq(opt_t opt) {
     
         //initialise the core data structure
         core_t* core = init_core(bam_file, opt, realtime0);
+        core->freq_map = freq_map;
 
         int32_t counter=0;
 
@@ -132,8 +132,8 @@ void start_realfreq(opt_t opt) {
             counter++;
         }
 
-        print_freq_output(opt);
-        dump_stats_map(core->opt.dump_file);
+        print_freq_output(opt, freq_map);
+        dump_stats_map(core->opt.dump_file, freq_map);
 
         // free the databatch
         free_db(core, db);
@@ -162,13 +162,16 @@ void start_realfreq(opt_t opt) {
 
         double realtime2 = realtime();
 
-        static log_entry_t log_entry;
-        log_entry.bamfile = bam_file;
-        log_entry.realtime_meth_freq = realtime1 - realtime0;
-        log_entry.realtime_write_output = realtime2 - realtime1;
-        // log_entry.stats_len = get_stats_len();
-        log_file_processed(&log_entry);
-
+        //write to log file
+        if(core->opt.log_file!=NULL){
+            FILE *fp = fopen(core->opt.log_file, "a");
+            if (fp == NULL) {
+                ERROR("Cannot open log file %s for writing", core->opt.log_file);
+                exit(EXIT_FAILURE);
+            }
+            fprintf(fp, "%s\t%.3f sec\t%.3f sec\t%d entries\n", bam_file, realtime1 - realtime0, realtime2 - realtime1, kh_size(freq_map));
+            fclose(fp);
+        }
         //free the core data structure
         free_core(core,opt);
         
@@ -188,7 +191,7 @@ int main(int argc, char* argv[]) {
     init_opt(&opt); //initialise options to defaults
     opt.subtool = MOD_FREQ;
     //parse the user args
-    const char* optstring = "bc:m:t:K:B:hp:o:d:rs:v:V";
+    const char* optstring = "bc:m:t:K:B:hp:o:d:l:rs:v:V";
     int32_t c = -1;
     //parse the user args
     while ((c = getopt(argc, argv, optstring)) != -1) {
@@ -228,13 +231,21 @@ int main(int argc, char* argv[]) {
         } else if (c == 'o') {
             FILE *fp = fopen(optarg, "w");
             if (fp == NULL) {
-                ERROR("Cannot open file %s for writing", optarg);
+                ERROR("Cannot open output file %s for writing", optarg);
                 exit(EXIT_FAILURE);
             }
             fclose(fp);
             opt.output_file = optarg;
         } else if (c == 'd') {
             opt.dump_file = optarg;
+        } else if (c == 'l') {
+            FILE *fp = fopen(optarg, "a");
+            if (fp == NULL) {
+                ERROR("Cannot open log file %s for writing", optarg);
+                exit(EXIT_FAILURE);
+            }
+            fclose(fp);
+            opt.log_file = optarg;
         } else if (c == 'r') {
             opt.is_resuming = 1;
         } else if (c == 's') {
@@ -296,33 +307,45 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (opt.server_port != -1) {
-        INFO("Starting server on port %d\n", opt.server_port);
-    }
-
     //load the reference genome
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
     fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
 
-    init_freq_map();
+    //initialise the freq_map
+    khash_t(freqm)* freq_map = kh_init(freqm);
 
     if(opt.is_resuming){
-        load_stats_map(opt.dump_file);
+        load_stats_map(opt.dump_file, freq_map);
     }
 
-    // // start the server
-    // if(opt.server_port!=-1) {
-    //     pthread_create(&server_thread, NULL, start_server, (void *) &opt.server_port);
-    // }
+    // start the server
+    server_args_t server_args = {opt.server_port, freq_map};
+    if(opt.server_port!=-1) {
+        INFO("Starting server on port %d\n", opt.server_port);
+        pthread_create(&server_thread, NULL, start_server, (void *) &server_args);
+    }
     
-    start_realfreq(opt);
+    start_realfreq(opt, freq_map);
 
-    // if(opt.server_port!=-1) {
-    //     pthread_join(server_thread, NULL);
-    // }
+    if(opt.server_port!=-1) {
+        pthread_cancel(server_thread);
+        INFO("Server on port %d stopped\n", opt.server_port);
+        pthread_join(server_thread, NULL);
+    }
 
-    destroy_freq_map();
+    // destroy the freq_map
+    khint_t k;
+    for (k = kh_begin(freq_map); k != kh_end(freq_map); k++) {
+        if (kh_exist(freq_map, k)) {
+            char *key = (char *) kh_key(freq_map, k);
+            freq_t* freq = kh_value(freq_map, k);
+            free(freq);
+            free(key);
+        }
+    }
+    kh_destroy(freqm, freq_map);
+
     destroy_ref();
 
     INFO("%s", "exiting\n");

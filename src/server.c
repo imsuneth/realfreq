@@ -30,6 +30,8 @@ SOFTWARE.
 #include "error.h"
 #include "mod.h"
 #include "minimod.h"
+#include "server.h"
+#include "misc.h"
 #include <stdio.h> 
 #include <netdb.h> 
 #include <netinet/in.h> 
@@ -54,6 +56,7 @@ char* help = "Available query commands:\n \
             get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n \
             \tquery by contig and between start and end positions and by mod code\n";
 
+khash_t(freqm)* map;
 /* 
 test commands:
     nc localhost 8080 <<< help
@@ -97,7 +100,7 @@ void * handle_request(void * clientfd)
             if(req_contig == NULL || req_start_pos == NULL || req_end_pos == NULL) {
                 response = "Invalid query. get_contig_range:<contig>:<start_pos>:<end_pos>\n";
             } else {
-                response = get_stats_contig_range(req_contig, atoi(req_start_pos), atoi(req_end_pos));
+                response = get_stats_contig_range(req_contig, atoi(req_start_pos), atoi(req_end_pos), map);
                 if (response == NULL) {
                     response = "No matching data found\n";
                 }
@@ -110,7 +113,7 @@ void * handle_request(void * clientfd)
             if(req_start_pos == NULL || req_end_pos == NULL) {
                 response = "Invalid query. get_range:<start_pos>:<end_pos>\n";
             } else {
-                response = get_stats_range(atoi(req_start_pos), atoi(req_end_pos));
+                response = get_stats_range(atoi(req_start_pos), atoi(req_end_pos), map);
                 if (response == NULL) {
                     response = "No matching data found\n";
                 }
@@ -122,7 +125,7 @@ void * handle_request(void * clientfd)
             if(req_contig == NULL) {
                 response = "Invalid query get_contig:<contig>\n";
             } else {
-                response = get_stats_contig(req_contig);
+                response = get_stats_contig(req_contig, map);
                 if (response == NULL) {
                     response = "No matching data found\n";
                 }
@@ -137,7 +140,7 @@ void * handle_request(void * clientfd)
             if(req_contig == NULL || req_start_pos == NULL || req_end_pos == NULL || req_mod_code == NULL) {
                 response = "Invalid query get_contig_range_mod:<contig>:<start_pos>:<end_pos>:<mod_code>\n";
             } else {
-                response = get_stats_contig_range_mod_code(req_contig, atoi(req_start_pos), atoi(req_end_pos), req_mod_code[0]);
+                response = get_stats_contig_range_mod_code(req_contig, atoi(req_start_pos), atoi(req_end_pos), req_mod_code[0], map);
                 if (response == NULL) {
                     response = "No matching data found\n";
                 }
@@ -157,15 +160,16 @@ void * handle_request(void * clientfd)
     pthread_exit(0);
 }
 
-
 void * start_server(void* arg) {
-    int port = *(int*)arg;
+    server_args_t *args = (server_args_t *)arg;
+    int port = args->port;
+    map = args->freq_map;
     int sockfd;
     struct sockaddr_in servaddr;
 
     // socket create and verification
-    while (1)
-    {
+    double t1 = realtime();
+    while (realtime() - t1 < TIMEOUT) {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1) {
             ERROR("%s", "socket creation failed...retrying in 5s\n");
@@ -184,7 +188,8 @@ void * start_server(void* arg) {
     servaddr.sin_port = htons(port);
 
     // Binding newly created socket to given IP and verification
-    while(1){
+    t1 = realtime();
+    while(realtime() - t1 < TIMEOUT) {
         if ((bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr))) != 0) {
             ERROR("socket bind to port %d failed...retrying in 5s\n", port);
             sleep(5);
@@ -196,7 +201,8 @@ void * start_server(void* arg) {
     
 
     // Now server is ready to listen and verification
-    while(1){
+    t1 = realtime();
+    while(realtime() - t1 < TIMEOUT) {
         if ((listen(sockfd, 5)) != 0) {
             ERROR("listen on port %dfailed...\n", port);
             sleep(5);
@@ -208,6 +214,7 @@ void * start_server(void* arg) {
             
     }
 
+    // Accept the data packet from client and verification
     while(1) {
         // Accept the data packet from client and verification
         struct sockaddr_in cli;
@@ -227,5 +234,8 @@ void * start_server(void* arg) {
         
     }
 
-    
+    close(sockfd);
+    pthread_exit(0);
+
+    return NULL;
 }

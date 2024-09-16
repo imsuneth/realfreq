@@ -98,26 +98,6 @@ static uint8_t req_threshes[256] = {
     ['A'] = 51, ['C'] = 51, ['G'] = 51, ['T'] = 51, ['U'] = 51, ['N'] = 51
 };
 
-//output maps
-khash_t(freqm)* freq_map;
-
-void init_freq_map(){
-    freq_map = kh_init(freqm);
-}
-
-void destroy_freq_map(){
-    khint_t k;
-    for (k = kh_begin(freq_map); k != kh_end(freq_map); k++) {
-        if (kh_exist(freq_map, k)) {
-            char *key = (char *) kh_key(freq_map, k);
-            freq_t* freq = kh_value(freq_map, k);
-            free(freq);
-            free(key);
-        }
-    }
-    kh_destroy(freqm, freq_map);
-}
-
 static inline int die(const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -287,7 +267,7 @@ void decode_key(char *key, char **contig, int *pos, char *mod_code, char *strand
     free(key_copy);
 }
 
-char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code) {
+char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code, khash_t(freqm) *freq_map) {
     freq_t ** freqs = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
     MALLOC_CHK(freqs);
     int len = 0;
@@ -332,7 +312,7 @@ char* get_stats_contig_range_mod_code(const char *contig, int start, int end, ch
     return all_stats;
 }
 
-char* get_stats_range(int start, int end) {
+char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
     freq_t ** freqs = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
     MALLOC_CHK(freqs);
     int len = 0;
@@ -377,7 +357,7 @@ char* get_stats_range(int start, int end) {
 
 }
 
-char* get_stats_contig(const char* contig) {
+char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map) {
     freq_t ** freqs = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
     MALLOC_CHK(freqs);
     int len = 0;
@@ -421,7 +401,7 @@ char* get_stats_contig(const char* contig) {
 
 }
 
-char* get_stats_contig_range(const char *contig, int start, int end) {
+char* get_stats_contig_range(const char *contig, int start, int end, khash_t(freqm) *freq_map) {
     freq_t ** freqs = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
     MALLOC_CHK(freqs);
     int len = 0;
@@ -484,6 +464,7 @@ char* get_stats_contig_range(const char *contig, int start, int end) {
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
     bam_hdr_t * hdr = core->bam_hdr;
+    khash_t(freqm) * freq_map = core->freq_map;
 
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
@@ -543,7 +524,7 @@ void update_freq_map(core_t * core, db_t * db) {
     }
 }
 
-void print_freq_output(opt_t opt) {
+void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
     FILE * output_fp;
     if(opt.output_file == NULL) {
         output_fp = stdout;
@@ -557,6 +538,7 @@ void print_freq_output(opt_t opt) {
     if(!opt.bedmethyl_out) {
         fprintf(output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
     }
+
 
     if(opt.bedmethyl_out) {
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
@@ -920,7 +902,8 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 
 // }
 
-void dump_stats_map(const char * dump_file){
+void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
+
     FILE *fp = fopen(dump_file, "wb");
     if (fp == NULL) {
         ERROR("Cannot open dump file %s\n", dump_file);
@@ -961,7 +944,7 @@ void dump_stats_map(const char * dump_file){
     fclose(fp);
 }
 
-void load_stats_map(const char * dump_file){
+void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
     FILE *fp = fopen(dump_file, "rb");
     if (fp == NULL) {
         ERROR("Cannot open dump file %s\n", dump_file);
@@ -1013,6 +996,8 @@ void load_stats_map(const char * dump_file){
 
     fclose(fp);
 }
+
+
 
 
 void modbases_single(core_t* core, db_t* db, int32_t i) {

@@ -6,6 +6,7 @@ GUPPY_BIN=""
 REF=""
 REFIDX=""
 MODEL=""
+THREADS=8
 
 # terminate script
 die() {
@@ -26,7 +27,7 @@ RED="\e[31m"
 NORMAL="\033[0;39m"
 
 ## Handle flags
-while getopts "d:l:f:p:g:r:i:m:" o; do
+while getopts "d:l:f:p:g:r:i:m:t:" o; do
     case "${o}" in
         d)
             TMP_FILE=${OPTARG}
@@ -51,6 +52,9 @@ while getopts "d:l:f:p:g:r:i:m:" o; do
             ;;
         m)  
             MODEL=${OPTARG}
+            ;;
+        t)
+            THREADS=${OPTARG}
             ;;
         *)
             echo "[pipeline.sh] Incorrect args"
@@ -126,41 +130,47 @@ do
     test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
 
     START_TIME=$(date)
-    echo "[pipeline.sh::${START_TIME}]  Converting $FILE to $SLOW5_FILEPATH"
-    ${BLUECRAB} p2s -p1 $FILE -o $SLOW5_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $FILE to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    echo "[pipeline.sh::${START_TIME}]  Converting $P5_FILEPATH to $SLOW5_FILEPATH"
+    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t2=$(date)
-    echo "[pipeline.sh::${t2}]  Finished converting $FILE to $SLOW5_FILEPATH"
+    echo "[pipeline.sh::${t2}]  Finished converting $P5_FILEPATH to $SLOW5_FILEPATH"
+    echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${LOG}
 
     echo "[pipeline.sh::${t2}]  Running buttery-eel on $SLOW5_FILEPATH"
     ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t3=$(date)
     echo "[pipeline.sh::${t3}]  Finished running buttery-eel on $SLOW5_FILEPATH"
+    echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${LOG}
 
     echo "[pipeline.sh::${t3}]  Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
-    ${SAMTOOLS} fastq -@ 36 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} fastq -@ $THREADS -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t4=$(date)
     echo "[pipeline.sh::${t4}]  Finished converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
+    echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${LOG}
 
     echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
-    ${MINIMAP2} -t 36 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${MINIMAP2} -t $THREADS -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t5=$(date)
     echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
+    echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${LOG}
 
     echo "[pipeline.sh::${t5}]  Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
-    ${SAMTOOLS} sort -@ 36 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} sort -@ $THREADS -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t6=$(date)
     echo "[pipeline.sh::${t6}]  Finished sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
+    echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${LOG}
 
     echo "[pipeline.sh::${t6}]  Indexing $BAM_FILEPATH"
-    ${SAMTOOLS} index -@ 36 $BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} index -@ $THREADS $BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t7=$(date)
     echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
+    echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}
     
     END_TIME=$(date)
 
     echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $P5_FILEPATH modbam: $BAM_FILEPATH"
    
-    echo -e "${P5_FILEPATH}\t${BAM_FILEPATH}\t${START_TIME}\t${END_TIME}" >> ${LOG}
+    echo -e "${P5_FILEPATH}\ttotal\t${START_TIME}\t${END_TIME}" >> ${LOG}
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then

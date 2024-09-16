@@ -79,20 +79,21 @@ typedef struct {
 
     char * ref_file;
     char * dump_file;
+    char * log_file;
     int8_t is_resuming;
     int server_port;
 } opt_t;
+
+typedef struct {
+    int ref_pos;
+    uint8_t mod_prob;
+} modbase_t;
 
 typedef struct {
     uint16_t n_called;
     uint16_t n_mod;
     char * key;
 } freq_t;
-
-typedef struct {
-    int ref_pos;
-    uint8_t mod_prob;
-} modbase_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};
@@ -164,6 +165,8 @@ typedef struct {
     int64_t total_reads; //total number entries in the bam file 
     int64_t skipped_reads; //reads skipped due to various reasons
     int64_t skipped_reads_bytes;
+
+    khash_t(freqm)* freq_map;
 
 } core_t;
 

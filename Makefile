@@ -7,7 +7,7 @@ CFLAGS = -g -Wall -O2  -std=c99
 LDFLAGS  += $(LIBS) -lz -lm -lpthread
 
 # Source files
-SRCS = src/error.c src/logger.c src/main.c src/misc_p.c src/misc.c src/mod.c src/thread.c src/minimod.c src/ref.c src/server.c
+SRCS = src/error.c src/main.c src/misc_p.c src/misc.c src/mod.c src/thread.c src/minimod.c src/ref.c src/server.c
 
 # Object files directory
 BUILD_DIR = build
