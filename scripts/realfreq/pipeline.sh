@@ -123,33 +123,38 @@ do
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
     LOG_FILEPATH=$SLOW5_LOG_DIR/$P5_PREFIX.log
 
+    test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
+
     START_TIME=$(date)
     echo "[pipeline.sh::${START_TIME}]  Converting $FILE to $SLOW5_FILEPATH"
-    test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
-    t1=$(date)
-    echo "[pipeline.sh::${t1}]  Converting $FILE to $SLOW5_FILEPATH"
-
     ${BLUECRAB} p2s -p1 $FILE -o $SLOW5_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $FILE to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t2=$(date)
     echo "[pipeline.sh::${t2}]  Finished converting $FILE to $SLOW5_FILEPATH"
 
+    echo "[pipeline.sh::${t2}]  Running buttery-eel on $SLOW5_FILEPATH"
     ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t3=$(date)
     echo "[pipeline.sh::${t3}]  Finished running buttery-eel on $SLOW5_FILEPATH"
 
+    echo "[pipeline.sh::${t3}]  Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
     ${SAMTOOLS} fastq -@ 36 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t4=$(date)
     echo "[pipeline.sh::${t4}]  Finished converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
 
+    echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
     ${MINIMAP2} -t 36 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t5=$(date)
     echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
 
+    echo "[pipeline.sh::${t5}]  Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
     ${SAMTOOLS} sort -@ 36 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t6=$(date)
     echo "[pipeline.sh::${t6}]  Finished sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
 
+    echo "[pipeline.sh::${t6}]  Indexing $BAM_FILEPATH"
     ${SAMTOOLS} index -@ 36 $BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    t7=$(date)
+    echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
     
     END_TIME=$(date)
 
