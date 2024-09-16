@@ -44,7 +44,7 @@ SOFTWARE.
 pthread_t server_thread;
 
 void print_help_msg(FILE * fp_help, opt_t opt) {
-    fprintf(fp_help, "Usage: realfreq ref.fa [options..]\nrealfreq reads the input bam file path from stdin\n");
+    fprintf(fp_help, "Usage: realfreq [options..] ref.fa\nrealfreq reads the input bam file path from stdin\n");
     fprintf(fp_help, "Options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));                                                    //0
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);                                                            //1
