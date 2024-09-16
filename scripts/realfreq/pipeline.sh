@@ -158,10 +158,9 @@ do
     
     END_TIME=$(date)
 
-    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $FILE modbam: $BAM_FILEPATH"
+    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $P5_FILEPATH modbam: $BAM_FILEPATH"
    
-    # echo "[pipeline.sh] $P5_FILEPATH" >> $TMP_FILE
-    # echo -e "${P5_FILEPATH}\t${SLOW5_FILEPATH}\t${START_TIME}\t${END_TIME}" >> ${LOG}
+    echo -e "${P5_FILEPATH}\t${BAM_FILEPATH}\t${START_TIME}\t${END_TIME}" >> ${LOG}
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then
