@@ -64,29 +64,29 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
 
 void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
     char *bam_file = (char *)malloc(FILEPATH_LEN * sizeof(char));
-    INFO("%s", "reading file path from stdin\n");
+    INFO("%s", "reading file path from stdin");
 
     while (1) {
         double realtime_prog = realtime();
 
         int ret = fscanf(stdin, "%s", bam_file);
         if (ferror(stdin)) {
-            INFO("%s", "error reading from stdin\n");
+            INFO("%s", "error reading from stdin");
             print_freq_output(opt, freq_map);
             break;
         }
         if (feof(stdin)) {
-            INFO("%s", "end of stdin\n");
+            INFO("%s", "end of stdin");
             print_freq_output(opt, freq_map);
             break;
         }
         if(ret!=1) {
-            INFO("%s", "error reading from stdin\n");
+            INFO("%s", "error reading from stdin");
             print_freq_output(opt, freq_map);
             break;
         }
         
-        INFO("processing file %s\n", bam_file);
+        INFO("processing file %s", bam_file);
         double realtime0 = realtime();
     
         //initialise the core data structure

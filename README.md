@@ -26,24 +26,61 @@ Following tools should be installed and available as they are used inside the pi
 - [minimap2](https://github.com/lh3/minimap2)
 
 If prerequisits are availbale, execute the following command on a terminal.
+
+### Example Commands
+When only raw signal files are written by sequencer.
+```bash
+export GUPPY_BIN=/ont-dorado-server/bin
+export REF=/ref/hg38noAlt.fa
+export REFIDX=/ref/hg38noAlt.idx
+export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
+
+./scripts/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL
+```
+
+When Modified bases ON and Alignment to reference sequence is ON in MinKNOW
+```bash
+export GUPPY_BIN=/ont-dorado-server/bin
+export REF=/ref/hg38noAlt.fa
+export REFIDX=/ref/hg38noAlt.idx
+export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
+
+./scripts/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbase.sh -a
+```
+
+### Command
 ```bash
 ./scripts/realfreq.sh -m [directory] -g [guppy_bin] -f [reference] -x [reference_index] -e [model] [options ...]
 ```
-Make sure to set <em>[directory]</em> to the absolute path of the experiment directory set in Minknow. (ex:<em>/opt/ont/minknow/data/exp001</em>).
-
-<em>reference_index</em> can be generated from <em>reference.fasta</em> using samtools running the command below
+### OPTIONS
 ```bash
-samtools faidx <reference.fasta>
+    -h, --help                                    Print help message
+    -i, --info                                    Print script information
+    -m [directory]                                The sequencing experiment directory to be monitored
+    -g [guppy_bin]                                Path to guppy binary
+    -f [reference]                                Reference genome for alignment
+    -x [reference_index]                          Reference genome index for alignment
+    -e [model]                                    Model for guppy basecalling
+    -o [output]                                   Output file for modification frequency [default: freq.tsv]
+    -r                                            Resumes a previous live conversion
+    -c [port]                                     Server port for realfreq
+    -t [time]                                     Timeout in seconds [default: 21600]
+    -p [processes]                                Maximum number of parallel conversion processes [default: 1]
+    -a                                            Watch modified BAM files instead of pod5 files
+```
+### Environment variable
+- REALFREQ_THREADS to set number of threads used for modification calling (default 1)
+- REALFREQ_AUTO: make realfreq.sh terminate at the end of MinKNOW sequencing run
+```bash
+export REALFREQ_THREADS=8
+export REALFREQ_AUTO=1
 ```
 
-Example command
+### Tips
+- Number of threads used by each tool in "raw signal to modBAM" pipeline can be changed appropriately in scripts/realfreq/pipeline.sh
+- <em>reference_index</em> can be generated from <em>reference.fasta</em> using samtools running the command below
 ```bash
-export GUPPY_BIN=/tools/ont-dorado-server/bin
-export REF=/data/ref/hg38noAlt.fa
-export REFIDX=/data/ref/hg38noAlt.idx
-export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-
-./scripts/realfreq/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL
+samtools faidx <reference.fasta>
 ```
 
 ## Running <em>realfreq</em> alone
@@ -57,7 +94,7 @@ echo /path/to/reads.bam | ./realfreq -r ref.fa -o freq.tsv
 ./realfreq -r ref.fa -o freq.tsv < bams_list.txt
 ```
 
-# <em>realfreq</em> server
+## <em>realfreq</em> server
 
 <em>realfreq</em> server provides an interface to access the real-time modification frequency information using simple socket connections.
 
@@ -87,23 +124,7 @@ nc localhost 8080 <<< get_contig_range_mod:chr22:18850302:49514860:m
 ```
 
 ## <em>realfreq</em> output
-### freq.tsv
-Each field of <em>freq.tsv</em> is listed below with their definition.
-
-| Field    | Definition    |
-|----------|-------------|
-| 1. chrom | choromosome |
-| 2. start | position (0-based) of the base |
-| 3. end   | position (0-based) of the base |
-| 4. depth | number of reads covering the base |
-| 5. n_mod | number of reads with probability (>0.2) for base modification |
-| 6. n_called | number of reads called for base modification |
-| 7. n_skipped | number of reads skipped the base as having less likelihood for modification |
-| 8. freq | n_mod/n_called ratio |
-| 9. mod_code | modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 10. strand | strand (+/-) where the base modification is observed |
-
-#### Sample freq.tsv
+### TSV
 ```
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
@@ -116,9 +137,18 @@ chr22	19995719	19995719	+	4	2	0.500000	m
 chr22	20017060	20017060	+	1	0	0.000000	m
 chr22	19971259	19971259	+	1	1	1.000000	m
 ```
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. contig | str | choromosome |
+| 2. start | int | position (0-based) of the base |
+| 3. end   | int | position (0-based) of the base |
+| 4. strand | char | strand (+/-) of the read |
+| 5. n_called | int | number of reads called for base modification |
+| 6. n_mod | int | number of reads with base modification |
+| 7. freq | float | n_mod/n_called ratio |
+| 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 
-
-**Sample freq.bedmethyl**
+#### Bedmethyl
 ```
 chr22	20016337	20016338	m	5	+	20016337	20016337	255,0,0	5	0.000000
 chr22	20016594	20016595	m	2	+	20016594	20016594	255,0,0	2	0.000000
@@ -131,3 +161,15 @@ chr22	20017060	20017061	m	1	+	20017060	20017060	255,0,0	1	0.000000
 chr22	19971259	19971260	m	1	+	19971259	19971259	255,0,0	1	1.000000
 chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 ```
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. contig | str | choromosome |
+| 2. start | int | position (0-based) of the base |
+| 3. end   | int | position (0-based) of the base |
+| 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 5. n_mod | int | number of reads with base modification |
+| 6. strand | char | strand (+/-) of the read |
+| 7. start | int | = field 2 |
+| 8. end   | int | = field 3 |
+| 9. n_mod | int | = field 5 |
+| 10. freq | float | n_mod/n_called ratio |

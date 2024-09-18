@@ -6,7 +6,6 @@ GUPPY_BIN=""
 REF=""
 REFIDX=""
 MODEL=""
-THREADS=8
 
 # terminate script
 die() {
@@ -27,7 +26,7 @@ RED="\e[31m"
 NORMAL="\033[0;39m"
 
 ## Handle flags
-while getopts "d:l:f:p:g:r:i:m:t:" o; do
+while getopts "d:l:f:p:g:r:i:m:" o; do
     case "${o}" in
         d)
             TMP_FILE=${OPTARG}
@@ -53,9 +52,6 @@ while getopts "d:l:f:p:g:r:i:m:t:" o; do
         m)  
             MODEL=${OPTARG}
             ;;
-        t)
-            THREADS=${OPTARG}
-            ;;
         *)
             echo "[pipeline.sh] Incorrect args"
             exit 1
@@ -70,7 +66,7 @@ command -v $BUTTERY_EEL &> /dev/null || die $RED"[pipeline.sh] buttery-eel not f
 $MINIMAP2 --version &> /dev/null || die $RED"[pipeline.sh] minimap2 not found in path. Exiting."$NORMAL
 $SAMTOOLS --version &> /dev/null || die $RED"[pipeline.sh] samtools not found in path. Exiting."$NORMAL
 
-EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all"
+EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all --procs 1 --slow5_threads 1"
 
 echo "[pipeline.sh] Starting pipeline with $MAX_PROC max processes"
 #test -e ${LOG}  && rm ${LOG}
@@ -90,78 +86,72 @@ do
     if [[ "$P5_DIR" =~ .*"pod5_pass".* ]]; then
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_pass/slow5_pass/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_pass/sam_pass/g')
-        SLOW5_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_pass/slow5_pass_logs/g')
-        SAM_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_pass/sam_pass_logs/g')
+        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_pass/pass_logs/g')
     elif [[ "$P5_DIR" =~ .*"pod5_fail".* ]]; then
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_fail/slow5_fail/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_fail/sam_fail/g')
-        SLOW5_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_fail/slow5_fail_logs/g')
-        SAM_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_fail/sam_fail_logs/g')
+        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_fail/fail_logs/g')
     elif [[ "$P5_DIR" =~ .*"pod5_skip".* ]]; then
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_skip/slow5_skip/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_skip/sam_skip/g')
-        SLOW5_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_skip/slow5_skip_logs/g')
-        SAM_LOG_DIR=$(echo $P5_DIR | sed 's/pod5_skip/sam_skip_logs/g')
+        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_skip/skip_logs/g')
     else
         SLOW5_DIR=$PARENT_DIR/slow5/
         SAM_DIR=$PARENT_DIR/sam/
-        SLOW5_LOG_DIR=$PARENT_DIR/slow5_logs/
-        SAM_LOG_DIR=$PARENT_DIR/sam_logs/
+        LOG_DIR=$PARENT_DIR/logs/
     fi
-    if [ -z "$SLOW5_DIR" ] || [ -z "$SLOW5_LOG_DIR" ] ; then
+    if [ -z "$SLOW5_DIR" ] || [ -z "$LOG_DIR" ] ; then
         SLOW5_DIR=$PARENT_DIR/slow5/
         SAM_DIR=$PARENT_DIR/sam/
-        SLOW5_LOG_DIR=$PARENT_DIR/slow5_logs/
-        SAM_LOG_DIR=$PARENT_DIR/sam_logs/
+        LOG_DIR=$PARENT_DIR/logs/
     fi
 
     test -d $SLOW5_DIR/ || { mkdir -p $SLOW5_DIR/; echo "[pipeline.sh] Created $SLOW5_DIR/. Converted SLOW5 files will be here."; }
-    test -d $SLOW5_LOG_DIR/ || { mkdir -p $SLOW5_LOG_DIR/; echo "[pipeline.sh] Created $SLOW5_LOG_DIR/. SLOW5 individual logs for each conversion will be here."; }
+    test -d $LOG_DIR/ || { mkdir -p $LOG_DIR/; echo "[pipeline.sh] Created $LOG_DIR/. individual logs for each conversion will be here."; }
     test -d $SAM_DIR/ || { mkdir -p $SAM_DIR/; echo "[pipeline.sh] Created $SAM_DIR/. SAM files will be here."; }
-    test -d $SAM_LOG_DIR/ || { mkdir -p $SAM_LOG_DIR/; echo "[pipeline.sh] Created $SAM_LOG_DIR/. SAM individual logs for each conversion will be here."; }
 
     SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
     UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unaln.sam
-    FASTQ_FILEPATH=$P5_DIR/$P5_PREFIX.fastq
+    FASTQ_FILEPATH=$SAM_DIR/$P5_PREFIX.fastq
     UNSORTED_BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unsorted.bam
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
-    LOG_FILEPATH=$SLOW5_LOG_DIR/$P5_PREFIX.log
+    LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
 
     test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
 
     START_TIME=$(date)
     echo "[pipeline.sh::${START_TIME}]  Converting $P5_FILEPATH to $SLOW5_FILEPATH"
-    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t2=$(date)
     echo "[pipeline.sh::${t2}]  Finished converting $P5_FILEPATH to $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${LOG}
 
     echo "[pipeline.sh::${t2}]  Running buttery-eel on $SLOW5_FILEPATH"
-    ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t3=$(date)
     echo "[pipeline.sh::${t3}]  Finished running buttery-eel on $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${LOG}
 
     echo "[pipeline.sh::${t3}]  Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
-    ${SAMTOOLS} fastq -@ $THREADS -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t4=$(date)
     echo "[pipeline.sh::${t4}]  Finished converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${LOG}
 
     echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
-    ${MINIMAP2} -t $THREADS -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t5=$(date)
     echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
     echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${LOG}
 
     echo "[pipeline.sh::${t5}]  Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
-    ${SAMTOOLS} sort -@ $THREADS -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t6=$(date)
     echo "[pipeline.sh::${t6}]  Finished sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${LOG}
 
     echo "[pipeline.sh::${t6}]  Indexing $BAM_FILEPATH"
-    ${SAMTOOLS} index -@ $THREADS $BAM_FILEPATH 2> $LOG_FILEPATH || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    /usr/bin/time -v ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t7=$(date)
     echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}

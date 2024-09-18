@@ -16,6 +16,7 @@
 #%    -d [tmp_file]                      Specify the temporary file location for resuming purposes.
 #%                                       Only used when resume option set.
 #%    -l [log_file]                      Specify the log file location for tracing
+#%    -x [extension]                     Specify the extension of the files to be monitored
 #%
 #================================================================
 #- IMPLEMENTATION
@@ -62,9 +63,10 @@ scriptinfo() { head -${SCRIPT_HEADSIZE:-99} ${0} | grep -e "^#-" | sed -e "s/^#-
 RESUME=false # Set resume option to false by default
 TMP_FILE="processed_list.log" # Default  temp in current directory
 LOG="monitor_trace.log"
+ENDS_WITH=".pod5" # Default file extension to monitor
 
 ## Handle flags
-while getopts "hird:l:" o; do
+while getopts "hird:l:x:" o; do
     case "${o}" in
         h)
             usagefull
@@ -82,6 +84,9 @@ while getopts "hird:l:" o; do
             ;;
         r)
             RESUME=true
+            ;;
+        x)
+            ENDS_WITH=${OPTARG}
             ;;
         *)
             echo "[ensure.sh] Incorrect args"
@@ -119,7 +124,7 @@ while read filename; do
     pathless=$(basename $filename) # Strip path
     prefix=${pathless%.*} # Remove extension
 
-    if echo $filename | grep -q '\.pod5$'; then # If it is a pod5 file
+    if echo $filename | grep -q '\'${ENDS_WITH}'$'; then # If it is a pod5 file
 
         if $RESUME; then # If resume option set
             grep -q "$prefix" "$TMP_FILE" # Check if filename exists in temp files

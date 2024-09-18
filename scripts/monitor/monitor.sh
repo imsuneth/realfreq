@@ -14,6 +14,7 @@
 #%    -f, --flag                                    Print flag of -1 if exited due to completion
 #%    -h, --help                                    Print help message
 #%    -i, --info                                    Print script information
+#%    -x, --extension                               File extension to monitor
 #%    -n [num]                                      Exit after given number of files
 #%    -d [tempfile]                                 Temporary file for monitor
 #%    -t [seconds],
@@ -76,10 +77,10 @@ monitor_dirs=() # Declare empty list of directories to monitor
 timeout=false # No timeout enabled by default
 flag=false # No flag on exit enabled by default
 existing=false # Existing files not outputed by default
-
+ENDS_WITH=".pod5" # Default file extension to monitor
 
 ## Handle flags
-while getopts "ehift:n:d:" o; do
+while getopts "ehift:n:d:x:" o; do
     case "${o}" in
         e)
             existing=true
@@ -104,6 +105,9 @@ while getopts "ehift:n:d:" o; do
             ;;
         d)
             TEMP_FILE="${OPTARG}"
+            ;;
+        x)
+            ENDS_WITH="${OPTARG}"
             ;;
         *)
             echo "[monitor.sh] Incorrect or no timeout format specified"
@@ -153,8 +157,7 @@ i=0 # Initialise file counter
 ## Set up monitoring of all input directory indefinitely for a file being written or moved to them
 (
     while read path action file; do
-
-        if $timeout && echo $file | grep -q '\.pod5$'; then # If timeout option set and file is pod5
+        if $timeout && echo $file | grep -q '\'${ENDS_WITH}'$'; then # If timeout option set and file is pod5
             reset_timer # Reset the timer
         fi
         echo "$path$file" # Output the absolute file path
@@ -194,7 +197,7 @@ while $timeout; do
         exit 0
     fi
 
-    if [ "$REALP2S_AUTO" = "1" ]; then
+    if [ "$REALFREQ_AUTO" = "1" ]; then
         SAMPLE=${monitor_dirs[0]}
         NUM_RESTARTS=$(find ${SAMPLE}/*/* -maxdepth 0 -type d | wc -l)
         NUM_SUMS=$(find $SAMPLE -type f -name "final_summary*.txt" -mmin +1 | wc -l)
