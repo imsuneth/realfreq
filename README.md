@@ -45,7 +45,7 @@ export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
-./scripts/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbase.sh -a
+./scripts/realfreq.sh -r -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbam.sh -a
 ```
 
 ### Command
