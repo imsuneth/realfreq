@@ -280,8 +280,7 @@ char* get_stats_contig_range_mod_code(const char *contig, int start, int end, ch
             char strand1;
             char * key = (char *) kh_key(freq_map, k);
             decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-            int end1 = start1+1;
-            if(strcmp(contig1, contig) == 0 && start1 >= start && end1 <= end && mod_code1 == mod_code){
+            if(strcmp(contig1, contig) == 0 && start1 >= start && start1 <= end && mod_code1 == mod_code){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
@@ -304,8 +303,7 @@ char* get_stats_contig_range_mod_code(const char *contig, int start, int end, ch
         char strand1;
         char * key = freq->key;
         decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-        int end1 = start1+1;
-        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, end1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
     }
 
     free(freqs);
@@ -325,8 +323,7 @@ char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
             char strand1;
             char * key = (char *) kh_key(freq_map, k);
             decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-            int end1 = start1+1;
-            if(start1 >= start && end1 <= end){
+            if(start1 >= start && start1 <= end){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
@@ -349,8 +346,7 @@ char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
         char strand1;
         char * key = freq->key;
         decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-        int end1 = start1+1;
-        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, end1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
     }
 
     free(freqs);
@@ -394,8 +390,7 @@ char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map) {
         char strand1;
         char * key = freq->key;
         decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-        int end1 = start1+1;
-        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, end1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
     }
 
     free(freqs);
@@ -416,8 +411,7 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
             char strand1;
             char * key = (char *) kh_key(freq_map, k);
             decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-            int end1 = start1+1;
-            if(strcmp(contig1, contig) == 0 && start1 >= start && end1 <= end){
+            if(strcmp(contig1, contig) == 0 && start1 >= start && start1 <= end){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
@@ -440,8 +434,7 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
         char strand1;
         char * key = freq->key;
         decode_key(key, &contig1, &start1, &mod_code1, &strand1);
-        int end1 = start1+1;
-        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, end1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
     }
 
     free(freqs);
