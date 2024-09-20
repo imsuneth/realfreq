@@ -328,6 +328,7 @@ char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
             int end1 = start1+1;
             if(start1 >= start && end1 <= end){
                 freqs[len] = freq;
+                freq->key = key;
                 len++;
             }
         }
@@ -372,6 +373,7 @@ char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map) {
             decode_key(key, &contig1, &start1, &mod_code1, &strand1);
             if(strcmp(contig1, contig) == 0){
                 freqs[len] = freq;
+                freq->key = key;
                 len++;
             }
         }
@@ -417,6 +419,7 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
             int end1 = start1+1;
             if(strcmp(contig1, contig) == 0 && start1 >= start && end1 <= end){
                 freqs[len] = freq;
+                freq->key = key;
                 len++;
             }
         }
