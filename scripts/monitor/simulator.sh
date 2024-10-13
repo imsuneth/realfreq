@@ -26,11 +26,10 @@
 #================================================================
 #- IMPLEMENTATION
 #-    authors         Hasindu GAMAARACHCHI (hasindu@unsw.edu.au),
-#-                    Sasha JENNER (jenner.sasha@gmail.com),
-#-                    Suneth SAMARASINGHE (imsuneth@gmail.com)
+#-                    Sasha JENNER (jenner.sasha@gmail.com)
 #-    license         MIT
 #-
-#-    Copyright (c) 2019 Hasindu Gamaarachchi, 2020 Sasha Jenner, 2024 Suneth Samarasinghe
+#-    Copyright (c) 2019 Hasindu Gamaarachchi, 2020 Sasha Jenner
 #-
 #-    Permission is hereby granted, free of charge, to any person obtaining a copy
 #-    of this software and associated documentation files (the "Software"), to deal
