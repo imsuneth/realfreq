@@ -34,14 +34,6 @@
 #%    -s [file]                                     Specify custom script for handling conversion [default: script_location/pipeline.sh]
 #%    -y, --yes                                     Say yes to 'Are you sure?' message in advance for overwriting
 #%
-#% EXAMPLES
-#%    convert
-#%        ${SCRIPT_NAME} -m [directory]
-#%    resume convert
-#%        ${SCRIPT_NAME} -m [directory] -r
-#%    one hour timeout
-#%        ${SCRIPT_NAME} -m [directory] -t 3600
-#%
 #================================================================
 #- IMPLEMENTATION
 #-    authors         Hasindu GAMAARACHCHI (hasindu@unsw.edu.au),
