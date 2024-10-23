@@ -51,5 +51,6 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) *freq_map);
 uint8_t parse_mod_codes(const char* mod_codes_str);
 void parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str, uint8_t n_codes);
 void print_mod_options(opt_t opt);
+void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map);
 
 #endif
