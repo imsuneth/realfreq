@@ -65,6 +65,8 @@ $BLUECRAB --version &> /dev/null || die $RED"[pipeline.sh] bluecrab not found in
 command -v $BUTTERY_EEL &> /dev/null || die $RED"[pipeline.sh] buttery-eel not found in path. Exiting."$NORMAL
 $MINIMAP2 --version &> /dev/null || die $RED"[pipeline.sh] minimap2 not found in path. Exiting."$NORMAL
 $SAMTOOLS --version &> /dev/null || die $RED"[pipeline.sh] samtools not found in path. Exiting."$NORMAL
+F5C=f5c
+$F5C --version &> /dev/null || die $RED"[pipeline.sh] f5c not found in path. Exiting."$NORMAL
 
 EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all"
 
@@ -87,28 +89,34 @@ do
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_pass/slow5_pass/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_pass/sam_pass/g')
         LOG_DIR=$(echo $P5_DIR | sed 's/pod5_pass/pass_logs/g')
+        F5C_DIR=$(echo $P5_DIR | sed 's/pod5_pass/f5c_pass/g')
     elif [[ "$P5_DIR" =~ .*"pod5_fail".* ]]; then
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_fail/slow5_fail/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_fail/sam_fail/g')
         LOG_DIR=$(echo $P5_DIR | sed 's/pod5_fail/fail_logs/g')
+        F5C_DIR=$(echo $P5_DIR | sed 's/pod5_fail/f5c_fail/g')
     elif [[ "$P5_DIR" =~ .*"pod5_skip".* ]]; then
         SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_skip/slow5_skip/g')
         SAM_DIR=$(echo $P5_DIR | sed 's/pod5_skip/sam_skip/g')
         LOG_DIR=$(echo $P5_DIR | sed 's/pod5_skip/skip_logs/g')
+        F5C_DIR=$(echo $P5_DIR | sed 's/pod5_skip/f5c_skip/g')
     else
         SLOW5_DIR=$PARENT_DIR/slow5/
         SAM_DIR=$PARENT_DIR/sam/
         LOG_DIR=$PARENT_DIR/logs/
+        F5C_DIR=$PARENT_DIR/f5c/
     fi
     if [ -z "$SLOW5_DIR" ] || [ -z "$LOG_DIR" ] ; then
         SLOW5_DIR=$PARENT_DIR/slow5/
         SAM_DIR=$PARENT_DIR/sam/
         LOG_DIR=$PARENT_DIR/logs/
+        F5C_DIR=$PARENT_DIR/f5c/
     fi
 
     test -d $SLOW5_DIR/ || { mkdir -p $SLOW5_DIR/; echo "[pipeline.sh] Created $SLOW5_DIR/. Converted SLOW5 files will be here."; }
     test -d $LOG_DIR/ || { mkdir -p $LOG_DIR/; echo "[pipeline.sh] Created $LOG_DIR/. individual logs for each conversion will be here."; }
     test -d $SAM_DIR/ || { mkdir -p $SAM_DIR/; echo "[pipeline.sh] Created $SAM_DIR/. SAM files will be here."; }
+    test -d $F5C_DIR/ || { mkdir -p $F5C_DIR/; echo "[pipeline.sh] Created $F5C_DIR/. f5c files will be here."; }
 
     SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
     UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unaln.sam
@@ -116,6 +124,7 @@ do
     UNSORTED_BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unsorted.bam
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
+    F5C_FILEPATH=$F5C_DIR/$P5_PREFIX.meth.tsv
 
     test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
 
@@ -155,10 +164,22 @@ do
     t7=$(date)
     echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}
-    
+
+    echo "[pipeline.sh::${t7}]  Running f5c index on $SLOW5_FILEPATH"
+    /usr/bin/time -v ${F5C} index --slow5 $SLOW5_FILEPATH $FASTQ_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running f5c index on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    t8=$(date)
+    echo "[pipeline.sh::${t8}]  Finished running f5c index on $SLOW5_FILEPATH"
+    echo -e "$P5_FILEPATH\tf5c-index\t${t7}\t${t8}" >> ${LOG}
+
+    echo "[pipeline.sh::${t8}]  Running f5c call-methylation on $SLOW5_FILEPATH"
+    /usr/bin/time -v ${F5C} call-methylation --slow5 $SLOW5_FILEPATH -b $BAM_FILEPATH -g $REF -r $FASTQ_FILEPATH > $F5C_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running f5c call-methylation on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    t9=$(date)
+    echo "[pipeline.sh::${t9}]  Finished running f5c call-methylation on $SLOW5_FILEPATH"
+    echo -e "$P5_FILEPATH\tf5c\t${t8}\t${t9}" >> ${LOG}
+            
     END_TIME=$(date)
 
-    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $P5_FILEPATH output: $BAM_FILEPATH"
+    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $P5_FILEPATH output: $F5C_FILEPATH"
    
     echo -e "${P5_FILEPATH}\ttotal\t${START_TIME}\t${END_TIME}" >> ${LOG}
 )&

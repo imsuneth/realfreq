@@ -92,7 +92,7 @@ do
     
     END_TIME=$(date)
 
-    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $MODBAM_FILEPATH modbam: $MODBAM_FILEPATH"
+    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $MODBAM_FILEPATH output: $MODBAM_FILEPATH"
    
     echo -e "${MODBAM_FILEPATH}\ttotal\t${START_TIME}\t${END_TIME}" >> ${LOG}
 )&

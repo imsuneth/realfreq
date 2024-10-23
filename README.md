@@ -28,24 +28,34 @@ Following tools should be installed and available as they are used inside the pi
 If prerequisits are availbale, execute the following command on a terminal.
 
 ### Example Commands
-When only raw signal files are written by sequencer.
+Monitor POD5 files, convert to modBAM using default pipeline and call modifications and get frequencies using realfreq.
 ```bash
 export GUPPY_BIN=/ont-dorado-server/bin
 export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
-./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL
+./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp -f $REF -x $REFIDX -e $MODEL
 ```
 
-When Modified bases ON and Alignment to reference sequence is ON in MinKNOW
+When "Modified bases" and "Alignment" are turned ON in MinKNOW, monitor BAM files, call modifications and get frequencies using realfreq.
 ```bash
 export GUPPY_BIN=/ont-dorado-server/bin
 export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
-./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/test3 -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbam.sh -a
+./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp-modbam -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbam.sh -a "bam"
+```
+
+Monitor POD5 files, convert to modBAM and call modification using f5c custom pipeline and get frequencies using realfreq.
+```bash
+export GUPPY_BIN=/ont-dorado-server/bin
+export REF=/ref/hg38noAlt.fa
+export REFIDX=/ref/hg38noAlt.idx
+export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
+
+./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp-f5c -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-f5c.sh
 ```
 
 ### Command
@@ -66,7 +76,7 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
     -c [port]                                     Server port for realfreq
     -t [time]                                     Timeout in seconds [default: 21600]
     -p [processes]                                Maximum number of parallel conversion processes [default: 1]
-    -a                                            Watch modified BAM files instead of pod5 files
+    -a [extension]                                Watch for files with extension [default: pod5]
 ```
 ### Environment variable
 - REALFREQ_THREADS to set number of threads used for modification calling (default 1)
@@ -84,7 +94,7 @@ samtools faidx <reference.fasta>
 ```
 
 ## Running <em>realfreq</em> alone
-<em>realfreq</em> takes the input BAM file path by reading the stdin. Therefore, BAM file path can be either piped to <em>realfreq</em> or a list of BAM file paths can be given in a file. Command for the two scenarios are as follows.
+<em>realfreq</em> takes the input file path (modBAM files or nanopolish/f5c TSV output files) form stdin. Therefore, file path can be either piped to <em>realfreq</em> or a list of paths can be given in a file. Command for the two scenarios are as follows.
 
 Example commands
 ```bash

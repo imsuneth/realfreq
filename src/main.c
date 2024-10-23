@@ -85,95 +85,102 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
             print_freq_output(opt, freq_map);
             break;
         }
-        
-        INFO("processing file %s", bam_file);
+
         double realtime0 = realtime();
-    
-        //initialise the core data structure
-        core_t* core = init_core(bam_file, opt, realtime0);
-        core->freq_map = freq_map;
+        if (strstr(bam_file, ".bam") != NULL) { //bam file
+            INFO("processing file %s", bam_file);
+            //initialise the core data structure
+            core_t* core = init_core(bam_file, opt, realtime0);
+            core->freq_map = freq_map;
 
-        int32_t counter=0;
+            int32_t counter=0;
 
-        //initialise a databatch
-        db_t* db = init_db(core);
+            //initialise a databatch
+            db_t* db = init_db(core);
 
-        ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
-        while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
+            ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
+            while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
 
-            //load a databatch
-            status = load_db(core, db);
+                //load a databatch
+                status = load_db(core, db);
 
-            //process the data batch
-            process_db(core, db);
+                //process the data batch
+                process_db(core, db);
 
-            //write the output
-            output_db(core, db);
+                //write the output
+                output_db(core, db);
 
-            free_db_tmp(core, db);
+                free_db_tmp(core, db);
 
-            //print progress
-            if(opt.progress_interval<=0 || realtime()-realtime_prog > opt.progress_interval){
-                fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
-                        realtime() - realtime0, cputime() / (realtime() - realtime0),
-                        (db->n_bam_recs), (db->sum_bytes)/(1000.0*1000.0),
-                        db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
-                realtime_prog = realtime();
+                //print progress
+                if(opt.progress_interval<=0 || realtime()-realtime_prog > opt.progress_interval){
+                    fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
+                            realtime() - realtime0, cputime() / (realtime() - realtime0),
+                            (db->n_bam_recs), (db->sum_bytes)/(1000.0*1000.0),
+                            db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
+                    realtime_prog = realtime();
+                }
+
+                //check if 90% of total reads are skipped
+                if(core->skipped_reads>0.9*core->total_reads){
+                    WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
+                }
+
+                if(opt.debug_break==counter){
+                    break;
+                }
+                counter++;
             }
 
-            //check if 90% of total reads are skipped
-            if(core->skipped_reads>0.9*core->total_reads){
-                WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
-            }
+            // free the databatch
+            free_db(core, db);
 
-            if(opt.debug_break==counter){
-                break;
+            fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
+            fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
+            fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
+            fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,core->skipped_reads_bytes/(float)(1000*1000));
+            fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)(core->total_reads-core->skipped_reads));
+            fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->sum_bytes-core->skipped_reads_bytes)/(float)(1000*1000));
+
+            fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
+            fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
+            if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & MINIMOD_ACC){
+                    fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
+                    fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
             }
-            counter++;
+            fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
+            fprintf(stderr,"\n");
+
+            //free the core data structure
+        free_core(core,opt);
+
+        } else if (strstr(bam_file, ".tsv") != NULL) { //tsv file
+            process_tsv_file(bam_file, opt, freq_map);
+            print_freq_output(opt, freq_map);
+            dump_stats_map(opt.dump_file, freq_map);
+            INFO("processed file %s", bam_file);
+            continue;
         }
-
-        print_freq_output(opt, freq_map);
-        dump_stats_map(core->opt.dump_file, freq_map);
-
-        // free the databatch
-        free_db(core, db);
-
-        fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
-        fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
-        fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
-        fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,core->skipped_reads_bytes/(float)(1000*1000));
-        fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)(core->total_reads-core->skipped_reads));
-        fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->sum_bytes-core->skipped_reads_bytes)/(float)(1000*1000));
-
-        fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
-        fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
-        if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & MINIMOD_ACC){
-                fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
-                fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
-        }
-        fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
-
-        fprintf(stderr,"\n");
+        
 
         double realtime1 = realtime();
 
-        // dump_stats_map(core->opt.dump_file);
-        // write_output(core->opt.out_file, core->opt.bedmethyl_out, opt.mod_code);
+        print_freq_output(opt, freq_map);
+        dump_stats_map(opt.dump_file, freq_map);
 
         double realtime2 = realtime();
 
         //write to log file
-        if(core->opt.log_file!=NULL){
-            FILE *fp = fopen(core->opt.log_file, "a");
+        if(opt.log_file!=NULL){
+            FILE *fp = fopen(opt.log_file, "a");
             if (fp == NULL) {
-                ERROR("Cannot open log file %s for writing", core->opt.log_file);
+                ERROR("Cannot open log file %s for writing", opt.log_file);
                 exit(EXIT_FAILURE);
             }
             fprintf(fp, "%s\t%.3f sec\t%.3f sec\t%d entries\n", bam_file, realtime1 - realtime0, realtime2 - realtime1, kh_size(freq_map));
             fclose(fp);
         }
-        //free the core data structure
-        free_core(core,opt);
+        
         
     }
     free(bam_file);

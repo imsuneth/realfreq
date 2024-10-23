@@ -78,7 +78,7 @@ monitor_dirs=() # Declare empty list of directories to monitor
 timeout=false # No timeout enabled by default
 flag=false # No flag on exit enabled by default
 existing=false # Existing files not outputed by default
-ENDS_WITH=".pod5" # Default file extension to monitor
+ENDS_WITH="pod5" # Default file extension to monitor
 
 ## Handle flags
 while getopts "ehift:n:d:x:" o; do
@@ -129,7 +129,7 @@ done
 
 if $existing; then # If existing files option set
 # Output the absolute path of all existing pod5 and fastq files
-    find ${monitor_dirs[@]} | grep '\\.pod5'
+    find ${monitor_dirs[@]} | grep '\\.'${ENDS_WITH}'$'
 fi
 
 reset_timer() {
@@ -158,7 +158,7 @@ i=0 # Initialise file counter
 ## Set up monitoring of all input directory indefinitely for a file being written or moved to them
 (
     while read path action file; do
-        if $timeout && echo $file | grep -q '\'${ENDS_WITH}'$'; then # If timeout option set and file is pod5
+        if $timeout && echo $file | grep -q '\.'${ENDS_WITH}'$'; then # If timeout option set and file is pod5
             reset_timer # Reset the timer
         fi
         echo "$path$file" # Output the absolute file path

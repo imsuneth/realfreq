@@ -27,7 +27,7 @@ SOFTWARE.
 
 
 ******************************************************************************/
-
+#define _GNU_SOURCE
 #include "mod.h"
 #include "misc.h"
 #include "error.h"
@@ -456,6 +456,47 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
 //     *meth_freqs_len = len;
 //     return freqs;
 // }
+
+void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map){
+    // columns: chromosome start end read_name log_lik_ratio log_lik_methylated log_lik_unmethylated num_calling_strands num_cpgs sequence
+    FILE *fp = fopen(tsv_file, "r");
+    if(fp == NULL){
+        ERROR("Could not open file %s", tsv_file);
+        exit(EXIT_FAILURE);
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    size_t read;
+    //skip the header
+    read = getline(&line, &len, fp);
+    while ((read = getline(&line, &len, fp)) != -1) {
+        char *contig = strtok(line, "\t");
+        int start = atoi(strtok(NULL, "\t"));
+        strtok(NULL, "\t"); // end
+        strtok(NULL, "\t"); // read_name
+        double log_lik_ratio = atof(strtok(NULL, "\t"));
+        
+        char *key = make_key(contig, start, 'm', '+');           
+        khiter_t k = kh_get(freqm, freq_map, key);
+        if (k == kh_end(freq_map)) { // not found, add to map
+            freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
+            MALLOC_CHK(freq);
+            freq->n_called = 1;
+            freq->n_mod = log_lik_ratio >= 0 ? 1 : 0;
+            int ret;
+            k = kh_put(freqm, freq_map, key, &ret);
+            kh_value(freq_map, k) = freq;
+        } else { // found, update the values
+            free(key);
+            freq_t * freq = kh_value(freq_map, k);
+            freq->n_called += 1;
+            freq->n_mod += log_lik_ratio >= 0 ? 1 : 0;
+        }
+    }
+    free(line);
+    fclose(fp);
+}
 
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
