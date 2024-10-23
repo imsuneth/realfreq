@@ -28,33 +28,36 @@ Following tools should be installed and available as they are used inside the pi
 If prerequisits are availbale, execute the following command on a terminal.
 
 ### Example Commands
-Monitor POD5 files, convert to modBAM using default pipeline and call modifications and get frequencies using realfreq.
+1. Monitor POD5 files, convert to modBAM using default pipeline and call modifications and get frequencies using realfreq.
+
+![usage-default](docs/figs/usage-default.png)
 ```bash
 export GUPPY_BIN=/ont-dorado-server/bin
 export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-
 ./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp -f $REF -x $REFIDX -e $MODEL
 ```
 
-When "Modified bases" and "Alignment" are turned ON in MinKNOW, monitor BAM files, call modifications and get frequencies using realfreq.
+2. When "Modified bases" and "Alignment" are turned ON in MinKNOW, monitor BAM files, call modifications and get frequencies using realfreq.
+
+![usage-modbam](docs/figs/usage-modbam.png)
 ```bash
 export GUPPY_BIN=/ont-dorado-server/bin
 export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-
 ./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp-modbam -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbam.sh -a "bam"
 ```
 
-Monitor POD5 files, convert to modBAM and call modification using f5c custom pipeline and get frequencies using realfreq.
+3. Monitor POD5 files, convert to modBAM and call modification using f5c custom pipeline and get frequencies using realfreq.
+
+![usage-f5c](docs/figs/usage-f5c.png)
 ```bash
 export GUPPY_BIN=/ont-dorado-server/bin
 export REF=/ref/hg38noAlt.fa
 export REFIDX=/ref/hg38noAlt.idx
 export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-
 ./scripts/realfreq.sh -g /$GUPPY_BIN -m /data/minknow/exp-f5c -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-f5c.sh
 ```
 
