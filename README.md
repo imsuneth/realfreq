@@ -1,6 +1,8 @@
 # <em>realfreq</em>
 Real-time base modification frequency monitoring tool along with a real-time modification calling pipeline.
 
+![usage-default](docs/figs/usage-default.png)
+
 # Installation
 ## Building from source
 ```bash
