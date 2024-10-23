@@ -60,37 +60,41 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help,"   -s PORT                    start server on PORT [%d]\n", opt.server_port);                                                                              //12
     fprintf(fp_help,"   -v INT                     verbosity level [%d]\n",(int)get_log_level());                                                                               //13
     fprintf(fp_help,"   -V                         print version\n");                                                                                                           //14
+    fprintf(fp_help,"   -w INT                     write output every INT seconds if new modifications found (-1: only at the end, 0: per input) [%d]\n", opt.write_interval);  //15
 }
 
 void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
-    char *bam_file = (char *)malloc(FILEPATH_LEN * sizeof(char));
+    char *file_path = (char *)malloc(FILEPATH_LEN * sizeof(char));
     INFO("%s", "reading file path from stdin");
-
+    double last_write = 0;
     while (1) {
         double realtime_prog = realtime();
 
-        int ret = fscanf(stdin, "%s", bam_file);
+        int ret = fscanf(stdin, "%s", file_path);
         if (ferror(stdin)) {
             INFO("%s", "error reading from stdin");
             print_freq_output(opt, freq_map);
+            dump_stats_map(opt.dump_file, freq_map);
             break;
         }
         if (feof(stdin)) {
             INFO("%s", "end of stdin");
             print_freq_output(opt, freq_map);
+            dump_stats_map(opt.dump_file, freq_map);
             break;
         }
         if(ret!=1) {
             INFO("%s", "error reading from stdin");
             print_freq_output(opt, freq_map);
+            dump_stats_map(opt.dump_file, freq_map);
             break;
         }
 
         double realtime0 = realtime();
-        if (strstr(bam_file, ".bam") != NULL) { //bam file
-            INFO("processing file %s", bam_file);
+        if (strstr(file_path, ".bam") != NULL) { //bam file
+            INFO("processing file %s", file_path);
             //initialise the core data structure
-            core_t* core = init_core(bam_file, opt, realtime0);
+            core_t* core = init_core(file_path, opt, realtime0);
             core->freq_map = freq_map;
 
             int32_t counter=0;
@@ -152,20 +156,22 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
             fprintf(stderr,"\n");
 
             //free the core data structure
-        free_core(core,opt);
+            free_core(core,opt);
 
-        } else if (strstr(bam_file, ".tsv") != NULL) { //tsv file
-            process_tsv_file(bam_file, opt, freq_map);
-            print_freq_output(opt, freq_map);
-            dump_stats_map(opt.dump_file, freq_map);
-            INFO("processed file %s", bam_file);
-            continue;
+        } else if (strstr(file_path, ".tsv") != NULL) { //tsv file
+            process_tsv_file(file_path, opt, freq_map);
+        } else {
+            WARNING("File format not supported: %s", file_path);
         }
         
-
         double realtime1 = realtime();
 
-        print_freq_output(opt, freq_map);
+        if(opt.write_interval!=-1 && (opt.write_interval==0 || last_write - realtime1 > opt.write_interval)) {
+            print_freq_output(opt, freq_map);
+        }
+
+        last_write = realtime1;
+
         dump_stats_map(opt.dump_file, freq_map);
 
         double realtime2 = realtime();
@@ -177,14 +183,15 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
                 ERROR("Cannot open log file %s for writing", opt.log_file);
                 exit(EXIT_FAILURE);
             }
-            fprintf(fp, "%s\t%.3f sec\t%.3f sec\t%d entries\n", bam_file, realtime1 - realtime0, realtime2 - realtime1, kh_size(freq_map));
+            fprintf(fp, "%s\t%.3f sec\t%.3f sec\t%d entries\n", file_path, realtime1 - realtime0, realtime2 - realtime1, kh_size(freq_map));
             fclose(fp);
         }
         
-        
+        INFO("processed file %s", file_path);
     }
-    free(bam_file);
+    free(file_path);
 }
+
 
 int main(int argc, char* argv[]) {
 
@@ -198,7 +205,7 @@ int main(int argc, char* argv[]) {
     init_opt(&opt); //initialise options to defaults
     opt.subtool = MOD_FREQ;
     //parse the user args
-    const char* optstring = "bc:m:t:K:B:hp:o:d:l:rs:v:V";
+    const char* optstring = "bc:m:t:K:B:hp:o:d:l:rs:v:Vw:";
     int32_t c = -1;
     //parse the user args
     while ((c = getopt(argc, argv, optstring)) != -1) {
@@ -263,6 +270,8 @@ int main(int argc, char* argv[]) {
         } else if (c == 'V') {
             fprintf(stderr, "realfreq version %s\n", VERSION);
             exit(EXIT_SUCCESS);
+        } else if (c == 'w') {
+            opt.write_interval = atoi(optarg);
         } else {
             ERROR("Unknown option %c", c);
             exit(EXIT_FAILURE);
@@ -277,6 +286,7 @@ int main(int argc, char* argv[]) {
     
     if(opt.mod_threshes_str==NULL){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
+        opt.mod_threshes_str = "0.8";
     } else {
         parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str, opt.n_mods);
     }

@@ -72,6 +72,7 @@ typedef struct {
     char* mod_codes_str;
     char* output_file;
     int progress_interval;
+    int write_interval;
 
     int8_t subtool; //0:view, 1:mod-freq
 

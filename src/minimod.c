@@ -459,15 +459,15 @@ void init_opt(opt_t* opt) {
     opt->num_thread = 8;
 
     opt->debug_break=-1;
-
-    opt->mod_codes_str = NULL;
-    opt->mod_threshes_str = NULL;
     opt->progress_interval = 0;
     opt->output_file = NULL;
     opt->is_resuming = 0;
     opt->server_port = -1; //no server by default
     opt->log_file = NULL;
     opt->bedmethyl_out = 0;
+    opt->write_interval = 0;
+    opt->dump_file = "realfreq.dump";
+    opt->log_file = "realfreq.log";
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;
