@@ -82,6 +82,16 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
     -t [time]                                     Timeout in seconds [default: 21600]
     -p [processes]                                Maximum number of parallel conversion processes [default: 1]
     -a [extension]                                Watch for files with extension [default: pod5]
+    -b                                            Output bedmethyl format
+
+ADVANCED/DEBUGGING OPTIONS
+
+    -n                                            Specify non-realtime analysis
+    -d [filename]                                 Specify custom location for the list of attempted files [default: monitor_dir/realfreq_attempted_list.log]
+    -l [filename]                                 Specify custom log filename [default: monitor_dir/realfreq.log]
+    -f [file]                                     Specify location for the list of files that failed to convert [default: monitor_dir/realfreq_failed_list.log]
+    -s [file]                                     Specify custom script for handling conversion [default: script_location/pipeline.sh]
+    -y, --yes                                     Say yes to 'Are you sure?' message in advance for overwriting
 ```
 ### Environment variable
 - REALFREQ_THREADS to set number of threads used for modification calling (default 1)
