@@ -3,7 +3,7 @@
 # HEADER
 #================================================================
 #% SYNOPSIS
-#+    ${SCRIPT_NAME} -m [directory] -g [guppy_bin] -f [reference] -x [reference_index] -e [model] [options ...]
+#+    ${SCRIPT_NAME} -m [directory] -g [dorado_bin] -f [reference] -x [reference_index] -e [model] [options ...]
 #%
 #% DESCRIPTION
 #%    Realtime methylation frequency computation of a given sequencing directory.
@@ -13,10 +13,10 @@
 #%    -h, --help                                    Print help message
 #%    -i, --info                                    Print script information
 #%    -m [directory]                                The sequencing experiment directory to be monitored
-#%    -g [guppy_bin]                                Path to guppy binary
+#%    -g [dorado_bin]                               Path to dorado bin
 #%    -f [reference]                                Reference genome for alignment
 #%    -x [reference_index]                          Reference genome index for alignment
-#%    -e [model]                                    Model for guppy basecalling
+#%    -e [model]                                    Model for dorado basecalling
 #%    -o [output]                                   Output file for modification frequency [default: freq.tsv]
 #%    -r                                            Resumes a previous live conversion
 #%    -c [port]                                     Server port for realfreq
@@ -94,7 +94,7 @@ MAX_PROC=1
 # Assume necessary options not set
 monitor_dir_specified=false
 MONITOR_PARENT_DIR=
-GUPPY_BIN=
+DORADO_BIN=
 REF=
 REFIDX=
 MODEL=
@@ -111,7 +111,7 @@ while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:a:b" o; do
             monitor_dir_specified=true
             ;;
         g)
-            GUPPY_BIN=${OPTARG}
+            DORADO_BIN=${OPTARG}
             ;;
         f)
             REF=${OPTARG}
@@ -190,9 +190,9 @@ if ! ($monitor_dir_specified); then
 	exit 1
 fi
 
-# If GUPPY_BIN not set
-if [ -z ${GUPPY_BIN} ]; then
-    echo -e $RED"[$SCRIPT_NAME] Guppy binary not set! Set with -g option"$NORMAL
+# If DORADO_BIN not set
+if [ -z ${DORADO_BIN} ]; then
+    echo -e $RED"[$SCRIPT_NAME] Dorado binary not set! Set with -g option"$NORMAL
     exit 1
 fi
 
@@ -265,7 +265,7 @@ which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not 
 #== Echo the options ==#
 echo "[$SCRIPT_NAME] Current options:"
 echo -e "\tMonitor directory:\t $MONITOR_PARENT_DIR"
-echo -e "\tGuppy binary:\t\t $GUPPY_BIN"
+echo -e "\tGuppy binary:\t\t $DORADO_BIN"
 echo -e "\tReference genome:\t $REF"
 echo -e "\tReference genome index:\t $REFIDX"
 echo -e "\tModel:\t\t\t $MODEL"
@@ -364,7 +364,7 @@ if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee -a $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
     catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF |& tee $LOG
 
 else # Else assume realtime analysis is desired
@@ -380,7 +380,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
         catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -r -l $TMP_FILE_PATH $REF
         
     else
@@ -389,7 +389,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
+        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
         catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -l $TMP_FILE_PATH $REF
         
     fi
@@ -409,7 +409,7 @@ else # Else assume realtime analysis is desired
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $GUPPY_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
+    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
     catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE ${resume_flag} -l $TMP_FILE_PATH $REF
     
 fi

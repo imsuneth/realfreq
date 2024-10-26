@@ -2,7 +2,7 @@
 
 TMP_FILE="attempted_list.log"
 TMP_FAILED="failed_list.log"
-GUPPY_BIN=""
+DORADO_BIN=""
 REF=""
 REFIDX=""
 MODEL=""
@@ -41,7 +41,7 @@ while getopts "d:l:f:p:g:r:i:m:" o; do
             MAX_PROC=${OPTARG}
             ;;
         g)
-            GUPPY_BIN=${OPTARG}
+            DORADO_BIN=${OPTARG}
             ;;
         r) 
             REF=${OPTARG}

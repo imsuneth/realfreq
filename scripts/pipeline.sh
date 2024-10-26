@@ -2,7 +2,7 @@
 
 TMP_FILE="attempted_list.log"
 TMP_FAILED="failed_list.log"
-GUPPY_BIN=""
+DORADO_BIN=""
 REF=""
 REFIDX=""
 MODEL=""
@@ -41,7 +41,7 @@ while getopts "d:l:f:p:g:r:i:m:" o; do
             MAX_PROC=${OPTARG}
             ;;
         g)
-            GUPPY_BIN=${OPTARG}
+            DORADO_BIN=${OPTARG}
             ;;
         r) 
             REF=${OPTARG}
@@ -66,7 +66,7 @@ command -v $BUTTERY_EEL &> /dev/null || die $RED"[pipeline.sh] buttery-eel not f
 $MINIMAP2 --version &> /dev/null || die $RED"[pipeline.sh] minimap2 not found in path. Exiting."$NORMAL
 $SAMTOOLS --version &> /dev/null || die $RED"[pipeline.sh] samtools not found in path. Exiting."$NORMAL
 
-EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all"
+EEL="$BUTTERY_EEL -g $DORADO_BIN --port 5000 --use_tcp --device cuda:all"
 
 echo "[pipeline.sh] Starting pipeline with $MAX_PROC max processes"
 #test -e ${LOG}  && rm ${LOG}

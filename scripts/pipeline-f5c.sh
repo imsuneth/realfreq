@@ -2,7 +2,7 @@
 
 TMP_FILE="attempted_list.log"
 TMP_FAILED="failed_list.log"
-GUPPY_BIN=""
+DORADO_BIN=""
 REF=""
 REFIDX=""
 MODEL=""
@@ -41,7 +41,7 @@ while getopts "d:l:f:p:g:r:i:m:" o; do
             MAX_PROC=${OPTARG}
             ;;
         g)
-            GUPPY_BIN=${OPTARG}
+            DORADO_BIN=${OPTARG}
             ;;
         r) 
             REF=${OPTARG}
@@ -68,7 +68,7 @@ $SAMTOOLS --version &> /dev/null || die $RED"[pipeline.sh] samtools not found in
 F5C=f5c
 $F5C --version &> /dev/null || die $RED"[pipeline.sh] f5c not found in path. Exiting."$NORMAL
 
-EEL="$BUTTERY_EEL -g $GUPPY_BIN --port 5000 --use_tcp --device cuda:all"
+EEL="$BUTTERY_EEL -g $DORADO_BIN --port 5000 --use_tcp --device cuda:all"
 
 echo "[pipeline.sh] Starting pipeline with $MAX_PROC max processes"
 #test -e ${LOG}  && rm ${LOG}
