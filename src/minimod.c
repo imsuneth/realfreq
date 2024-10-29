@@ -499,6 +499,9 @@ void init_opt(opt_t* opt) {
     opt->write_interval = 0;
     opt->dump_file = "realfreq.dump";
     opt->log_file = "realfreq.log";
+
+    opt->mod_codes_str = NULL;
+    opt->mod_threshes_str = NULL;
     
 
 #ifdef HAVE_ACC

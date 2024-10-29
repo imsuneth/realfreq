@@ -46,8 +46,8 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help, "Usage: realfreq [options..] ref.fa\nrealfreq reads the input bam file path from stdin\n");
     fprintf(fp_help, "Options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));                                                    //0
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);                                                           //1
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes); //2
+    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);                                                           //1
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str); //2
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);                                                                        //3
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);                                                     //4
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));                                      //5
@@ -197,9 +197,6 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
 
 int main(int argc, char* argv[]) {
 
-    char *mod_codes_str = NULL;
-    char *mod_threshes_str = NULL;
-
     FILE *fp_help = stderr;
 
     opt_t opt;
@@ -213,9 +210,9 @@ int main(int argc, char* argv[]) {
         if (c == 'b') {
             opt.bedmethyl_out = 1;
         } else if (c == 'c') {
-            mod_codes_str = optarg;
+            opt.mod_codes_str = optarg;
         } else if (c == 'm') {
-            mod_threshes_str = optarg;
+            opt.mod_threshes_str = optarg;
         } else if (c == 't') {
             opt.num_thread = atoi(optarg);
             if (opt.num_thread < 1) {
@@ -279,18 +276,18 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        mod_codes_str = "m";
+        opt.mod_codes_str = "m";
     }
     
-    if(mod_threshes_str==NULL || strlen(mod_threshes_str)==0){
+    if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
-        mod_threshes_str = "0.8";
+        opt.mod_threshes_str = "0.8";
     } 
     
-    parse_mod_codes(&opt, mod_codes_str);
-    parse_mod_threshes(&opt, mod_threshes_str);
+    parse_mod_codes(&opt);
+    parse_mod_threshes(&opt);
 
     // No arguments given
     if (argc - optind != 1 || fp_help == stdout) {

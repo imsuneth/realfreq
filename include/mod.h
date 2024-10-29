@@ -45,8 +45,8 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
 char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code, khash_t(freqm) *freq_map);
 void load_stats_map(const char * dump_file, khash_t(freqm) *freq_map);
 void dump_stats_map(const char * dump_file, khash_t(freqm) *freq_map);
-void parse_mod_codes(opt_t *opt, char* mod_codes_str);
-void parse_mod_threshes(opt_t * opt, char* mod_thresh_str);
+void parse_mod_codes(opt_t *opt);
+void parse_mod_threshes(opt_t * opt);
 void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map);
 
 #endif
