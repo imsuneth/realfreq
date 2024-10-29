@@ -37,20 +37,16 @@ const char *get_mm_tag_ptr(bam1_t *record);
 uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
 void modbases_single(core_t* core, db_t* db, int32_t i);
 void update_freq_map(core_t* core, db_t* db);
-void print_freq_tsv_header(opt_t opt);
+void print_freq_tsv_header(core_t * core);
 void print_freq_output(opt_t opt, khash_t(freqm) *freq_map);
-void print_view_output(core_t* core, db_t* db);
-void init_freq_map();
-void destroy_freq_map();
 char* get_stats_range(int start, int end, khash_t(freqm) *freq_map);
 char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map);
 char* get_stats_contig_range(const char *contig, int start, int end, khash_t(freqm) *freq_map);
 char* get_stats_contig_range_mod_code(const char *contig, int start, int end, char mod_code, khash_t(freqm) *freq_map);
 void load_stats_map(const char * dump_file, khash_t(freqm) *freq_map);
 void dump_stats_map(const char * dump_file, khash_t(freqm) *freq_map);
-uint8_t parse_mod_codes(const char* mod_codes_str);
-void parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str, uint8_t n_codes);
-void print_mod_options(opt_t opt);
+void parse_mod_codes(opt_t *opt, char* mod_codes_str);
+void parse_mod_threshes(opt_t * opt, char* mod_thresh_str);
 void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map);
 
 #endif

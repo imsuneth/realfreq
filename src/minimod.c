@@ -188,6 +188,19 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->ml);
     db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
     MALLOC_CHK(db->aln);
+
+    if(core->opt.insertions) {
+        db->ins = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+        MALLOC_CHK(db->ins);
+        db->ins_offset = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+        MALLOC_CHK(db->ins_offset);
+    }
+
+    if(core->opt.haplotypes){
+        db->haplotypes = (int*)(malloc(sizeof(int) * db->cap_bam_recs));
+        MALLOC_CHK(db->haplotypes);
+    }
+    
     db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
     MALLOC_CHK(db->bases_pos);
     db->skip_counts = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
@@ -196,8 +209,10 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->mod_codes);
     db->mod_codes_cap = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
     MALLOC_CHK(db->mod_codes_cap);
-    db->modbases = (modbase_t***)malloc(sizeof(modbase_t**) * db->cap_bam_recs);
-    MALLOC_CHK(db->modbases);
+    db->mod_prob = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
+    MALLOC_CHK(db->mod_prob);
+
+
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
@@ -212,9 +227,8 @@ db_t* init_db(core_t* core) {
 
         db->mod_codes_cap[i] = core->opt.n_mods;
 
-        db->modbases[i] = (modbase_t**)malloc(sizeof(modbase_t*)*core->opt.n_mods);
-        MALLOC_CHK(db->modbases[i]);
-
+        db->mod_prob[i] = (int**)malloc(sizeof(int*)*core->opt.n_mods);
+        MALLOC_CHK(db->mod_prob[i]);
     }
 
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
@@ -238,7 +252,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
     db->skipped_reads_bytes = 0;
 
     ret_status_t status = {0, 0};
-    uint32_t l_qseq;
     int32_t i;
     bam1_t* rec;
 
@@ -249,7 +262,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
         
         i = db->n_bam_recs;
         rec = db->bam_recs[i];
-        l_qseq = rec->core.l_qseq;
         
         if(rec->core.flag & BAM_FUNMAP){
                 db->skipped_reads++;
@@ -282,14 +294,22 @@ ret_status_t load_db(core_t* core, db_t* db) {
         }
 
         db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+        MALLOC_CHK(db->aln[i]);
+
+        if(core->opt.insertions) {
+            db->ins[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->ins[i]);
+            db->ins_offset[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->ins_offset[i]);
+        }
 
         for(int j=0;j<core->opt.n_mods;j++){
-            db->modbases[i][j] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
-            MALLOC_CHK(db->modbases[i][j]);
+            db->mod_prob[i][j] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->mod_prob[i][j]);
         }
 
         for(int j=0;j<N_BASES;j++){
-            db->bases_pos[i][j] = (int*)malloc(sizeof(int)*l_qseq);
+            db->bases_pos[i][j] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
             MALLOC_CHK(db->bases_pos[i][j]);
         }
 
@@ -409,8 +429,12 @@ void free_db_tmp(core_t* core, db_t* db) {
     for (i = 0; i < db->n_bam_recs; i++) {        
         free(db->ml[i]);
         free(db->aln[i]);
+        if(core->opt.insertions) {
+            free(db->ins[i]);
+            free(db->ins_offset[i]);
+        }
         for(int j=0;j<core->opt.n_mods;j++){
-            free(db->modbases[i][j]);
+            free(db->mod_prob[i][j]);
         }
 
         for(int b=0;b<N_BASES;b++){
@@ -421,7 +445,6 @@ void free_db_tmp(core_t* core, db_t* db) {
 
     }
 }
-
 /* completely free a data batch */
 void free_db(core_t* core, db_t* db) {
 
@@ -429,10 +452,8 @@ void free_db(core_t* core, db_t* db) {
     
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
-        free(db->modbases[i]);
-
+        free(db->mod_prob[i]);
         free(db->mod_codes[i]);
-
         free(db->bases_pos[i]);
         bam_destroy1(db->bam_recs[i]);
     }
@@ -440,17 +461,23 @@ void free_db(core_t* core, db_t* db) {
     free(db->skip_counts);
     free(db->mod_codes);
     free(db->mod_codes_cap);
-    free(db->modbases);
+    free(db->mod_prob);
     free(db->bases_pos);
     free(db->ml_lens);
     free(db->mm);
     free(db->ml);
     free(db->aln);
+    if(core->opt.insertions) {
+        free(db->ins);
+        free(db->ins_offset);
+    }
+    if(core->opt.haplotypes){
+        free(db->haplotypes);
+    }
     free(db->bam_recs);
     free(db->means);
     free(db);
 }
-
 /* initialise user specified options */
 void init_opt(opt_t* opt) {
     memset(opt, 0, sizeof(opt_t));
@@ -459,8 +486,12 @@ void init_opt(opt_t* opt) {
     opt->num_thread = 8;
 
     opt->debug_break=-1;
+
     opt->progress_interval = 0;
     opt->output_file = NULL;
+    
+    opt->ref_file = NULL;
+
     opt->is_resuming = 0;
     opt->server_port = -1; //no server by default
     opt->log_file = NULL;
@@ -468,9 +499,17 @@ void init_opt(opt_t* opt) {
     opt->write_interval = 0;
     opt->dump_file = "realfreq.dump";
     opt->log_file = "realfreq.log";
+    
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;
 #endif
 
+}
+
+/* free user specified options */
+void free_opt(opt_t* opt) {
+    for(int i=0;i<opt->n_mods;i++){
+        free(opt->req_mod_contexts[i]);
+    }
 }

@@ -68,8 +68,10 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    char * mod_threshes_str;
-    char* mod_codes_str;
+    uint8_t req_threshes[17];      // required threshold for each mod code
+    char* req_mod_contexts[17];    // required context for each mod code
+    char req_mod_codes[17];        // required mod codes
+    char * ref_file;
     char* output_file;
     int progress_interval;
     int write_interval;
@@ -78,17 +80,14 @@ typedef struct {
 
     uint8_t n_mods;
 
-    char * ref_file;
     char * dump_file;
     char * log_file;
     int8_t is_resuming;
     int server_port;
-} opt_t;
+    uint8_t insertions; //is insertions enabled, add ins column to the output
+    uint8_t haplotypes; //is haplotypes enabled, add haplotype column to the output
 
-typedef struct {
-    int ref_pos;
-    uint8_t mod_prob;
-} modbase_t;
+} opt_t;
 
 typedef struct {
     uint16_t n_called;
@@ -112,15 +111,17 @@ typedef struct {
     uint8_t ** ml;
 
     // alignment
-    int ** aln;
-    int *** bases_pos;
-    int ** skip_counts;
-    char ** mod_codes;
-    uint8_t * mod_codes_cap;
+    int ** aln; // aln[rec_i][read_pos] = ref_pos
+    int ** ins; // ins[rec_i][read_pos] = ins_pos
+    int ** ins_offset; // ins_offset[rec_i][read_pos] = ins_offset
+    int * haplotypes; // haplotypes[rec_i] = haplotype
+    int *** mod_prob; // mod_prob[rec_i][mod_i][read_pos] = mod_prob
+    int *** bases_pos; // bases_pos[rec_i][base_i] = read_pos
+    int ** skip_counts; // skip_counts[rec_i][read_pos] = skip_count
+    char ** mod_codes; // mod_codes[rec_i][mod_i] = mod_code
+    uint8_t * mod_codes_cap; // mod_codes_cap[rec_i] = mod_codes_cap
 
     double *means;
-    // view output
-    modbase_t *** modbases;
 
     //stats
     int64_t sum_bytes;
@@ -235,5 +236,8 @@ void free_db(core_t* core, db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);
+
+/* free user specified options */
+void free_opt(opt_t* opt);
 
 #endif

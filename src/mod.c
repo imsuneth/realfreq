@@ -41,62 +41,13 @@ SOFTWARE.
 #include <stdbool.h>
 #include <pthread.h>
 
-static const int valid_bases[256] = {
-    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
-    ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1
-};
-
-static const int valid_strands[256] = {
-    ['+'] = 1,
-    ['-'] = 1
-};
-
-static const int base_idx_lookup[256] = {
-    ['A'] = 0,
-    ['C'] = 1,
-    ['G'] = 2,
-    ['T'] = 3,
-    ['U'] = 4,
-    ['N'] = 5,
-    ['a'] = 0,
-    ['c'] = 1,
-    ['g'] = 2,
-    ['t'] = 3,
-    ['u'] = 4,
-    ['n'] = 5,
-};
-
-static const char base_complement_lookup[256] = {
-    ['A'] = 'T',
-    ['C'] = 'G',
-    ['G'] = 'C',
-    ['T'] = 'A',
-    ['U'] = 'A',
-    ['N'] = 'N',
-    ['a'] = 't',
-    ['c'] = 'g',
-    ['g'] = 'c',
-    ['t'] = 'a',
-    ['u'] = 'a',
-    ['n'] = 'n',
-};
-
-static const uint8_t valid_mod_codes[256] = {
-    ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1, 
-    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1
-};
-
-// required mods for the mod freq calculation (255 means unset)
-static uint8_t req_mods[256] = {
-    ['a'] = 255, ['b'] = 255, ['c'] = 255, ['e'] = 255, ['f'] = 255, ['g'] = 255, ['h'] = 255, ['m'] = 255, ['n'] = 255, ['o'] = 255, 
-    ['A'] = 255, ['C'] = 255, ['G'] = 255, ['T'] = 255, ['U'] = 255, ['N'] = 255
-};
-
-// threshold for the mod freq calculation (51 = 0.2 * 255)
-static uint8_t req_threshes[256] = {
-    ['a'] = 51, ['b'] = 51, ['c'] = 51, ['e'] = 51, ['f'] = 51, ['g'] = 51, ['h'] = 51, ['m'] = 51, ['n'] = 51, ['o'] = 51, 
-    ['A'] = 51, ['C'] = 51, ['G'] = 51, ['T'] = 51, ['U'] = 51, ['N'] = 51
-};
+static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
+static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
+static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
+static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
+static const uint8_t valid_mod_codes[256] = { ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1 };
+static int mod_code_idx[256]; // address by mod code to get the index
+static const char* default_context[256] = { ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
 
 static inline int die(const char *format, ...) {
     va_list args;
@@ -169,55 +120,136 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
     *len_ptr = len;
 
     return array;
-
 }
 
-uint8_t parse_mod_codes(const char* mod_codes_str){
-    uint8_t n_codes = 0, i=0;
-
-    if(strlen(mod_codes_str)==0){
-        ERROR("%s","Modification code(s) provided with -c option is empty");
-        exit(EXIT_FAILURE);
-    }
-
-    char c;
-    while((c = mod_codes_str[i]) != '\0'){
-        if(valid_mod_codes[(int)c]==0){
-            ERROR("Invalid modification code %c",c);
-            exit(EXIT_FAILURE);
+// get the haplotype integer from the HP tag
+uint8_t get_hp_tag(bam1_t *record){
+    
+        const char* tag = "HP";
+        // get the HP tag
+        uint8_t *data = bam_aux_get(record, tag);
+        if(data == NULL){
+            LOG_TRACE("%s tag not found in read %s",tag, bam_get_qname(record));
+            return 0;
         }
-        if(req_mods[(int)c]!=255){
-            ERROR("Duplicate modification code %c",c);
-            exit(EXIT_FAILURE);
-        }
-        req_mods[(int)c] = i;
-        i++;
-    }
-    n_codes = i;
-
-    return n_codes;
+    
+        // get the integer value
+        uint8_t hp = (uint8_t) bam_aux2i(data);
+    
+        return hp;
 }
 
-void parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str, uint8_t n_codes){
-    uint8_t i=0;
 
-    if(strlen(mod_thresh_str)==0){
-        ERROR("%s","Modification threshold(s) provided with -m option is empty");
-        exit(EXIT_FAILURE);
+void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
+    
+    uint8_t n_codes = 0;
+    int i=0;
+
+    for(i=0;i<256;i++){ // reset the mod_code_idx array to -1 (not requested)
+        mod_code_idx[i] = -1;
     }
 
-    char *mod_thresh_str_copy = (char *)malloc(strlen(mod_thresh_str)+1);
-    MALLOC_CHK(mod_thresh_str_copy);
-    strcpy(mod_thresh_str_copy, mod_thresh_str);
-    char* token = strtok(mod_thresh_str_copy, ",");
     i=0;
-    while(token!=NULL){
-        char *end;
-        errno = 0;
-        double d = strtod(token, &end);
+    while(1){
+        if(mod_codes_str[i] == '\0'){ // end of string
+            break;
+        }
+        
+        char c = mod_codes_str[i];
+        if(valid_mod_codes[(int)c] == 0){
+            ERROR("Invalid modification code %c", c);
+            exit(EXIT_FAILURE);
+        }
+        if(mod_code_idx[(int)c] != -1){ // already set
+            ERROR("Duplicate modification code %c", c);
+            exit(EXIT_FAILURE);
+        }
+        
+        mod_code_idx[(int)c] = n_codes;
+        opt->req_mod_codes[n_codes] = c;
+        
+        i++;
 
-        if (errno != 0 || end == token || *end != '\0') {
-            ERROR("Invalid modification threshold %s",token);
+        int context_cap = 2;
+        char * context = (char *)malloc(context_cap * sizeof(char) + 1);
+        MALLOC_CHK(context);
+
+        if(mod_codes_str[i] == '['){ // context given
+            i++;
+            int j = 0;
+            int is_star = 0;
+            while(mod_codes_str[i] != ']' || mod_codes_str[i] == '\0'){
+                if(mod_codes_str[i] == '*'){
+                    is_star = 1;
+                }
+                if(valid_bases[(int)mod_codes_str[i]]==0 && mod_codes_str[i] != '*'){
+                    ERROR("Invalid character %c in context for modification code %c", mod_codes_str[i], c);
+                    exit(EXIT_FAILURE);
+                }
+                if(j >= context_cap){
+                    context_cap *= 2;
+                    context = (char *)realloc(context, context_cap * sizeof(char) + 1);
+                    MALLOC_CHK(context);
+                }
+                context[j] = mod_codes_str[i];
+                i++;
+                j++;
+            }
+            if(mod_codes_str[i] == '\0'){
+                ERROR("Context not closed with a ] for modification code %c", c);
+                exit(EXIT_FAILURE);
+            }
+            context[j] = '\0';
+            if(is_star && j > 1){
+                ERROR("Invalid context for modification code %c. * should be the only character in the context", c);
+                exit(EXIT_FAILURE);
+            }
+            opt->req_mod_contexts[n_codes] = context;
+            i++;
+        } else if(mod_codes_str[i] == ','){ // context is *
+            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
+            strcpy(context, default_context[(int)c]);
+            opt->req_mod_contexts[n_codes] = context;
+            i++;
+        } else if(mod_codes_str[i] == '\0'){
+            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
+            strcpy(context, default_context[(int)c]);
+            opt->req_mod_contexts[n_codes] = context;
+        } else {
+            ERROR("Invalid character %c after modification code %c", mod_codes_str[i], c);
+            exit(EXIT_FAILURE);
+        }
+        n_codes++;
+    }
+
+    opt->n_mods = n_codes;
+}
+
+void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
+    int i=0;
+    int n_thresh = 0;
+    int thresh_str_cap = 1;
+    while(mod_thresh_str[i] != '\0'){
+        char * thresh_str = (char *)malloc(thresh_str_cap * sizeof(char) + 1);
+        MALLOC_CHK(thresh_str);
+        int j = 0;
+        while(mod_thresh_str[i] != ',' && mod_thresh_str[i] != '\0'){
+            if(j >= thresh_str_cap){
+                thresh_str_cap *= 2;
+                thresh_str = (char *)realloc(thresh_str, thresh_str_cap * sizeof(char) + 1);
+                MALLOC_CHK(thresh_str);
+            }
+            thresh_str[j] = mod_thresh_str[i];
+            i++;
+            j++;
+        }
+        thresh_str[j] = '\0';
+
+        errno = 0;
+        double d = atof(thresh_str);
+
+        if(errno != 0){
+            ERROR("Invalid threshold. You entered %s",thresh_str);
             exit(EXIT_FAILURE);
         }
         
@@ -226,44 +258,49 @@ void parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str, uint8_t
             exit(EXIT_FAILURE);
         }
 
-        req_threshes[(int)mod_codes_str[i]] = d*255;
-        token = strtok(NULL, ",");
+        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[n_thresh], opt->req_mod_contexts[n_thresh], d);
+
+        opt->req_threshes[n_thresh] = d*255;
+        
+        free(thresh_str);
+        n_thresh++;
+        if(mod_thresh_str[i] == '\0'){
+            break;
+        }
         i++;
     }
-    if(i!=n_codes){
-        ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",n_codes,i);
+
+    if(n_thresh != opt->n_mods){
+        ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,n_thresh);
         exit(EXIT_FAILURE);
     }
-    free(mod_thresh_str_copy);
 }
 
-void print_mod_options(opt_t opt){
-    for(int i=0;i<opt.n_mods;i++){
-        INFO("Modification code: %c, Threshold: %f", opt.mod_codes_str[i], req_threshes[(int)opt.mod_codes_str[i]]/255.0);
-    }
-}
-
-char* make_key(const char *chrom, int pos, char mod_code, char strand){
+char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand, int haplotype){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
-    int key_strlen = strlen(chrom) + start_strlen  + 6;
+    int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
+    int haplotype_strlen = snprintf(NULL, 0, "%d", haplotype);
+    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + haplotype_strlen + 8;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%c\t%c", chrom, pos, mod_code, strand);
+    snprintf(key, key_strlen, "%s\t%d\t%u\t%c\t%c\t%d", chrom, pos, ins_offset, mod_code, strand, haplotype);
     return key;
 }
 
-void decode_key(char *key, char **contig, int *pos, char *mod_code, char *strand){
+void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand, int *haplotype){
     char* key_copy = (char *)malloc(strlen(key)+1);
     MALLOC_CHK(key_copy);
     strcpy(key_copy, key);
     char* token = strtok(key_copy, "\t");
-    *contig = calloc(strlen(token)+1, sizeof(char));
-    MALLOC_CHK(*contig);
-    strcpy(*contig, token);
+    *chrom = calloc(strlen(token)+1, sizeof(char));
+    MALLOC_CHK(*chrom);
+    strcpy(*chrom, token);
     *pos = atoi(strtok(NULL, "\t"));
+    *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
     *mod_code = strtok(NULL, "\t")[0];
     *strand = strtok(NULL, "\t")[0];
+    *haplotype = atoi(strtok(NULL, "\t"));
     free(key_copy);
 }
 
@@ -276,15 +313,18 @@ char* get_stats_contig_range_mod_code(const char *contig, int start, int end, ch
             freq_t * freq = kh_value(freq_map, k);
             char *contig1 = NULL;
             int start1;
+            uint16_t ins_offset;
             char mod_code1;
             char strand1;
+            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+            decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
             if(strcmp(contig1, contig) == 0 && start1 >= start && start1 <= end && mod_code1 == mod_code){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
             }
+            free(contig1);
         }
     }
     if(len == 0){
@@ -299,11 +339,14 @@ char* get_stats_contig_range_mod_code(const char *contig, int start, int end, ch
         double freq_value = (double)freq->n_mod*100/freq->n_called;
         char *contig1 = NULL;
         int start1;
+        uint16_t ins_offset;
         char mod_code1;
         char strand1;
+        int haplotype;
         char * key = freq->key;
-        decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+        decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
         sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        free(contig1);
     }
 
     free(freqs);
@@ -319,15 +362,18 @@ char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
             freq_t * freq = kh_value(freq_map, k);
             char *contig1 = NULL;
             int start1;
+            uint16_t ins_offset;
             char mod_code1;
             char strand1;
+            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+            decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
             if(start1 >= start && start1 <= end){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
             }
+            free(contig1);
         }
     }
     if(len == 0){
@@ -342,11 +388,14 @@ char* get_stats_range(int start, int end, khash_t(freqm) *freq_map) {
         double freq_value = (double)freq->n_mod*100/freq->n_called;
         char *contig1 = NULL;
         int start1;
+        uint16_t ins_offset;
         char mod_code1;
         char strand1;
+        int haplotype;
         char * key = freq->key;
-        decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+        decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
         sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        free(contig1);
     }
 
     free(freqs);
@@ -363,15 +412,18 @@ char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map) {
             freq_t * freq = kh_value(freq_map, k);
             char *contig1 = NULL;
             int start1;
+            uint16_t ins_offset;
             char mod_code1;
             char strand1;
+            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+            decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
             if(strcmp(contig1, contig) == 0){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
             }
+            free(contig1);
         }
     }
     if(len == 0){
@@ -386,11 +438,14 @@ char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map) {
         double freq_value = (double)freq->n_mod*100/freq->n_called;
         char *contig1 = NULL;
         int start1;
+        uint16_t ins_offset;
         char mod_code1;
         char strand1;
+        int haplotype;
         char * key = freq->key;
-        decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+        decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
         sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        free(contig1);
     }
 
     free(freqs);
@@ -407,15 +462,18 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
             freq_t * freq = kh_value(freq_map, k);
             char *contig1 = NULL;
             int start1;
+            uint16_t ins_offset;
             char mod_code1;
             char strand1;
+            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+            decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
             if(strcmp(contig1, contig) == 0 && start1 >= start && start1 <= end){
                 freqs[len] = freq;
                 freq->key = key;
                 len++;
             }
+            free(contig1);
         }
     }
     if(len == 0){
@@ -430,32 +488,19 @@ char* get_stats_contig_range(const char *contig, int start, int end, khash_t(fre
         double freq_value = (double)freq->n_mod*100/freq->n_called;
         char *contig1 = NULL;
         int start1;
+        uint16_t ins_offset;
         char mod_code1;
         char strand1;
+        int haplotype;
         char * key = freq->key;
-        decode_key(key, &contig1, &start1, &mod_code1, &strand1);
+        decode_key(key, &contig1, &start1, &ins_offset, &mod_code1, &strand1, &haplotype);
         sprintf(all_stats, "%s%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", all_stats, contig1, start1, start1, strand1, freq->n_called, freq->n_mod, freq_value, mod_code1);
+        free(contig1);
     }
 
     free(freqs);
     return all_stats;
 }
-
-
-// static freq_t ** get_stats(khash_t(freqm)* freq_map, uint32_t *meth_freqs_len){
-//     uint32_t len = 0;
-//     freq_t ** freqs = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
-//     MALLOC_CHK(freqs);
-//     for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
-//         if (kh_exist(freq_map, k)) {
-//             freq_t * freq = kh_value(freq_map, k);
-//             freqs[len] = freq;
-//             len++;
-//         }
-//     }
-//     *meth_freqs_len = len;
-//     return freqs;
-// }
 
 void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map){
     // columns: chromosome start end read_name log_lik_ratio log_lik_methylated log_lik_unmethylated num_calling_strands num_cpgs sequence
@@ -477,7 +522,7 @@ void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map)
         strtok(NULL, "\t"); // read_name
         double log_lik_ratio = atof(strtok(NULL, "\t"));
         
-        char *key = make_key(contig, start, 'm', '+');           
+        char *key = make_key(contig, start, 0, 'm', '+', -1);           
         khiter_t k = kh_get(freqm, freq_map, key);
         if (k == kh_end(freq_map)) { // not found, add to map
             freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
@@ -501,7 +546,7 @@ void process_tsv_file(const char *tsv_file, opt_t opt, khash_t(freqm) *freq_map)
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
     bam_hdr_t * hdr = core->bam_hdr;
-    khash_t(freqm) * freq_map = core->freq_map;
+    khash_t(freqm) *freq_map = core->freq_map;
 
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
@@ -512,34 +557,47 @@ void update_freq_map(core_t * core, db_t * db) {
         uint32_t seq_len = record->core.l_qseq;
         char strand = rev ? '-' : '+';
 
-        modbase_t ** bases = db->modbases[i];
-
         for(int j=0;j<core->opt.n_mods;j++){
-            char mod_code = core->opt.mod_codes_str[j];
-            if(req_mods[(int)mod_code]==255){ // mod code not required
-                continue;
-            }
+            char mod_code = core->opt.req_mod_codes[j];
             for(int seq_i=0;seq_i<seq_len;seq_i++){
-                modbase_t * base = &bases[j][seq_i];
-
-                if(base->ref_pos == -1){ // no modification
+                
+                if(db->mod_prob[i][j][seq_i] == -1){ // not called
                     continue;
                 }
 
-                uint8_t is_mod = 0, is_called = 0;
-                uint8_t thresh = req_threshes[(int)mod_code];
-                uint8_t mod_prob = base->mod_prob;
+                if(core->opt.insertions && db->aln[i][seq_i] == -1 && db->ins[i][seq_i] == -1){ // not aligned, not inserted
+                    continue;
+                } else if(!core->opt.insertions && db->aln[i][seq_i] == -1){ // not aligned
+                    continue;
+                }
+
+                int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
                 
-                if(mod_prob >= 255-thresh){ // modified with mod_code
+                uint8_t is_mod = 0, is_called = 0;
+                uint8_t thresh = core->opt.req_threshes[j];
+                int mod_prob = db->mod_prob[i][j][seq_i];
+                
+                if(mod_prob >= thresh){ // modified with mod_code
                     is_called = 1;
                     is_mod = 1;
-                } else if(mod_prob <= thresh){ // not modified with mod_code
+                } else if(mod_prob <= 255-thresh){ // not modified with mod_code
                     is_called = 1;
                 } else { // ambiguous
                     continue;
                 }
 
-                char *key = make_key(tname, base->ref_pos, mod_code, strand);           
+                int ins_offset = 0;
+                int haplotype = 0;
+                char *key = NULL;
+                if(core->opt.insertions){
+                    ins_offset = db->ins_offset[i][seq_i];
+                }
+                if(core->opt.haplotypes){
+                    haplotype = db->haplotypes[i];
+                }
+
+                key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
+
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
@@ -555,7 +613,27 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq->n_called += is_called;
                     freq->n_mod += is_mod;
                 }
-                
+
+                if(core->opt.haplotypes) {
+                    // total counts
+                    key = make_key(tname, ref_pos, ins_offset, mod_code, strand, -1);
+
+                    k = kh_get(freqm, freq_map, key);
+                    if (k == kh_end(freq_map)) { // not found, add to map
+                        freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
+                        MALLOC_CHK(freq);
+                        freq->n_called = is_called;
+                        freq->n_mod = is_mod;
+                        int ret;
+                        k = kh_put(freqm, freq_map, key, &ret);
+                        kh_value(freq_map, k) = freq;
+                    } else { // found, update the values
+                        free(key);
+                        freq_t * freq = kh_value(freq_map, k);
+                        freq->n_called += is_called;
+                        freq->n_mod += is_mod;
+                    }
+                }
             }
         }
     }
@@ -572,10 +650,20 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
             exit(EXIT_FAILURE);
         }
     }
-    if(!opt.bedmethyl_out) {
-        fprintf(output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
-    }
 
+    if(!opt.bedmethyl_out) { // tsv output header, no header for bedmethyl
+        char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code";
+        char * ins_offset = "";
+        char * haplotype = "";
+        if(opt.insertions){
+            ins_offset = "\tins_offset";
+        }
+        if(opt.haplotypes){
+            haplotype = "\thaplotype";
+        }
+
+        fprintf(output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+    }
 
     if(opt.bedmethyl_out) {
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
@@ -586,10 +674,12 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
                 double freq_value = (double)freq->n_mod*100/freq->n_called;
                 char *contig = NULL;
                 int ref_pos;
+                uint16_t ins_offset;
                 char mod_code;
                 char strand;
+                int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
                 int end = ref_pos+1;
                 fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
                 free(contig);
@@ -605,24 +695,42 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
                 double freq_value = (double)freq->n_mod/freq->n_called;
                 char * contig = NULL;
                 int ref_pos;
+                uint16_t ins_offset;
                 char mod_code;
                 char strand;
+                int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-                fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+
+                if(opt.insertions){
+                    fprintf(output_fp, "\t%d", ins_offset);
+                } 
+                if(opt.haplotypes) {
+                    if(haplotype == -1){
+                        fprintf(output_fp, "\t*");
+                    } else {
+                        fprintf(output_fp, "\t%d", haplotype);
+                    }
+                }
+                fprintf(output_fp, "\n");
                 free(contig);
             }
         }
     }
+
     fclose(output_fp);
 }
 
-static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
+static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
+    const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     int32_t pos = record->core.pos;
     int32_t end = bam_endpos(record);
+
+    const char *qname = bam_get_qname(record);
 
     int8_t rev = bam_is_rev(record);
 
@@ -630,14 +738,28 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     uint32_t n_cigar = record->core.n_cigar;
 
     int seq_len = record->core.l_qseq;
+
+    ref_t *ref = get_ref(tname);
+    ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
   
     int read_pos = 0;
     int ref_pos = pos;
 
     int * aligned_pairs = *aln;
+    int * ins_pos = NULL;
+    int * ins_off = NULL;
     //fill the aligned_pairs array with -1
     for(int i=0;i<seq_len;i++){
         aligned_pairs[i] = -1;
+    }
+
+    if(core->opt.insertions){
+        ins_pos = *ins;
+        ins_off = *ins_offset;
+        for(int i=0;i<seq_len;i++){
+            ins_pos[i] = -1;
+            ins_off[i] = 0;
+        }
     }
 
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
@@ -654,7 +776,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
         int ref_inc = 0;
 
         // Process match between the read and the reference
-        int8_t is_aligned = 0;
+        int8_t is_aligned = 0, is_inserted = 0;
         if(cigar_op == BAM_CMATCH || cigar_op == BAM_CEQUAL || cigar_op == BAM_CDIFF) {
             is_aligned = 1;
             read_inc = 1;
@@ -667,11 +789,12 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
             ref_inc = 1;
         } else if(cigar_op == BAM_CINS) {
             read_inc = 1;
+            is_inserted = 1;
         } else if(cigar_op == BAM_CSOFT_CLIP) {
             read_inc = 1;
         } else if(cigar_op == BAM_CHARD_CLIP) {
             read_inc = 0;
-            ERROR("Hard clipping(%d) not supported. Use minimap2 with -Y to use soft clipping for suplimentary alignment.\n", cigar_op);
+            ERROR("Hard clipping found in %s and they are not supported.\nTry following workarounds.\n\t01. Filter out non-primary alignments\n\t\tsamtools view -h -F 2308 reads.bam -o primary_reads.bam\n\t02. Use minimap2 with -Y to use soft clipping for suplimentary alignments.\n", qname); 
             exit(EXIT_FAILURE);
         } else {
             ERROR("Unhandled CIGAR OPT Cigar: %d\n", cigar_op);
@@ -687,6 +810,21 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
                     start = pos + end - ref_pos - 1;
                 }
                 aligned_pairs[read_pos] = start;
+
+                ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
+                ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
+            }
+
+            if(core->opt.insertions && is_inserted) {
+                ASSERT_MSG(read_pos < seq_len, "read_pos:%d seq_len:%d\n", read_pos, seq_len);
+                int start = ref_pos-1;
+                int offset = j+1;
+                if(rev) {
+                    start = pos + end - ref_pos - 1;
+                    offset = cigar_len - j;
+                }
+                ins_pos[read_pos] = start;
+                ins_off[read_pos] = offset;
             }
 
             // increment
@@ -696,7 +834,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     }
 }
 
-static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
+static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, int * ins, int * ins_offsets, bam_hdr_t *hdr, bam1_t *record) {
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
     int32_t tid = record->core.tid;
@@ -704,6 +842,8 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
     const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
+
+    ref_t *ref = get_ref(tname);
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
@@ -717,12 +857,9 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
         bases_pos[idx][bases_pos_lens[idx]++] = i;
-
-        modbase_t base;
-        base.ref_pos = -1;
-        base.mod_prob = 0;
+        
         for(int j=0;j<core->opt.n_mods;j++){
-            db->modbases[bam_i][j][i] = base;
+            db->mod_prob[bam_i][j][i] = -1;
         }
     }
 
@@ -809,9 +946,9 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
             }
             skip_count_str[l] = '\0';
-            ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
+            ASSERT_MSG(l > 0, "Invalid skip count:%d.\n", l);
             sscanf(skip_count_str, "%d", &skip_counts[k]);
-            ASSERT_MSG(skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", skip_counts[k]);
+            ASSERT_MSG(skip_counts[k] >= 0, "Skip count cannot be negative: %d.\n", skip_counts[k]);
             
             k++;
         }
@@ -852,50 +989,49 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 read_pos = bases_pos[idx][base_rank];
             }
 
-            ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
+            ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             int ref_pos = aln_pairs[read_pos];
-            if(ref_pos == -1) {
+            if(core->opt.insertions) {
+                ref_pos = ref_pos == -1 ? ins[read_pos] : ref_pos;
+            }
+
+            if(ref_pos == -1) { // not aligned nor insertion
                 if(mod_codes_len > 0) {
                     ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
                 }
                 continue;
             }
 
-            int8_t is_cpg = 0;
-            ref_t *ref = get_ref(tname);
-            ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
-            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
-            ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
-            char * ref_seq = ref->forward;
-            if ((!rev && ref_pos + 1 < ref->ref_seq_length && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos + 1] == 'G') ||
-                (rev && ref_pos > 0 && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos - 1] == 'C')) {
-                is_cpg = 1;
-            }
-            if(is_cpg == 0) {
-                if(mod_codes_len > 0) {
-                    ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
-                }
-                continue;
-            }
-            
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
                 char mod_code = mod_codes[m];
                 
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
-                if(req_mods[(int)mod_code]==255){ // mod code not required
+                if(mod_code_idx[(int)mod_code]==-1){ // mod code not required
                     continue;
                 }
 
-                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
+                if(core->opt.insertions) { // no need to check context for insertions
+
+                } else if ((!rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos] == 1) || (rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos - 1] == 1)) { // in context
+                } else {
+                    continue;
+                }
+
+                ASSERT_MSG(ml_idx<ml_len, "Mod prob index mismatch. ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
-                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
+                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
-                db->modbases[bam_i][req_mods[(int)mod_code]][read_pos].mod_prob = mod_prob;
-                db->modbases[bam_i][req_mods[(int)mod_code]][read_pos].ref_pos = ref_pos;
-
+                if(db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] != -1) {
+                    WARNING("Multiple modification calls for the same base in read:%s ref_pos:%d mod_code:%c read_pos:%d\nKeeping the call with higher modification probability. Ignoring the other calls.\n", qname, ref_pos, mod_code, read_pos);
+                    if(mod_prob > db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos]) {
+                        db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
+                    }
+                } else {
+                    db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
+                }      
             }
 
         }
@@ -903,41 +1039,6 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 
     }
 }
-
-// void print_view_output(core_t* core, db_t* db) {
-//     fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
-//     for(int i=0;i<db->n_bam_recs;i++){
-//         bam1_t *record = db->bam_recs[i];
-//         bam_hdr_t * hdr = core->bam_hdr;
-//         const char *qname = bam_get_qname(record);
-//         int32_t tid = record->core.tid;
-//         assert(tid < hdr->n_targets);
-//         const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
-//         int32_t seq_len = record->core.l_qseq;
-
-//         int8_t rev = bam_is_rev(record);
-//         char strand = rev ? '-' : '+';
-
-//         modbase_t ** bases = db->modbases[i];
-//         for(int j=0;j<core->opt.n_mods;j++){
-//             char mod_code = core->opt.mod_codes_str[j];
-//             if(req_mods[(int)mod_code]==255){ // mod code not required
-//                 continue;
-//             }
-//             for(int seq_i=0;seq_i<seq_len;seq_i++){
-//                 modbase_t base = bases[j][seq_i];
-            
-//                 if(base.ref_pos == -1){
-//                     continue;
-//                 }
-
-//                 fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0);
-            
-//             }
-//         }
-//     }
-
-// }
 
 void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
 
@@ -952,10 +1053,12 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
             freq_t * freq = kh_value(freq_map, k);
             char *contig = NULL;
             int start;
+            uint16_t ins_offset;
             char mod_code;
             char strand;
+            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig, &start, &mod_code, &strand);
+            decode_key(key, &contig, &start, &ins_offset, &mod_code, &strand, &haplotype);
             size_t chrom_len = strlen(contig);
             // fprintf(stderr, "writing chrom_len:%ld chrom:%s start:%d end:%d depth:%d n_mod:%d n_called:%d n_skipped:%d mod_code:%c mod_strand:%c ref_base:%c is_aln_cpg:%d\n", chrom_len, freq->contig, freq->start, freq->end, freq->depth, freq->n_mod, freq->n_called, freq->n_skipped, freq->mod_code, freq->strand, freq->ref_base, freq->is_aln_cpg);
 
@@ -973,6 +1076,10 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
             ASSERT_MSG(r==1, "Error writing mod_code to dump file: %s r:%ld\n", dump_file, r);
             r = fwrite(&strand, sizeof(char), 1, fp);
             ASSERT_MSG(r==1, "Error writing mod_strand to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&ins_offset, sizeof(uint16_t), 1, fp);
+            ASSERT_MSG(r==1, "Error writing ins_offset to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&haplotype, sizeof(int), 1, fp);
+            ASSERT_MSG(r==1, "Error writing haplotype to dump file: %s r:%ld\n", dump_file, r);
 
             free(contig);
         }
@@ -1005,8 +1112,10 @@ void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
         char * contig = (char *)malloc((chrom_len+1)*sizeof(char));
         MALLOC_CHK(contig);
         int start;
+        uint16_t ins_offset;
         char mod_code;
         char strand;
+        int haplotype;
 
         contig[chrom_len] = '\0';
 
@@ -1022,8 +1131,12 @@ void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
         ASSERT_MSG(r==1, "Error reading mod_code from dump file: %s\n r:%ld", dump_file, r);
         r = fread(&strand, sizeof(char), 1, fp);
         ASSERT_MSG(r==1, "Error reading mod_strand from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&ins_offset, sizeof(uint16_t), 1, fp);
+        ASSERT_MSG(r==1, "Error reading ins_offset from dump file: %s\n r:%ld", dump_file, r);
+        r = fread(&haplotype, sizeof(int), 1, fp);
+        ASSERT_MSG(r==1, "Error reading haplotype from dump file: %s\n r:%ld", dump_file, r);
 
-        char *key = make_key(contig, start, mod_code, strand);
+        char *key = make_key(contig, start, ins_offset, mod_code, strand, haplotype);
         int ret;
         khiter_t k = kh_put(freqm, freq_map, key, &ret);
         kh_value(freq_map, k) = freq;
@@ -1034,9 +1147,6 @@ void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
     fclose(fp);
 }
 
-
-
-
 void modbases_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
 
@@ -1046,6 +1156,16 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
 
     bam_hdr_t *hdr = core->bam_hdr;
 
-    get_aln(&(db->aln[i]), hdr, record);
-    get_bases(core, db, i, mm, ml, ml_len, db->aln[i], hdr, record);
+    if(core->opt.haplotypes) {
+        db->haplotypes[i] = get_hp_tag(record);
+    }
+
+    if(core->opt.insertions) {
+        get_aln(core, &(db->aln[i]), &(db->ins[i]), &(db->ins_offset[i]), hdr, record);
+        get_bases(core, db, i, mm, ml, ml_len, db->aln[i], db->ins[i], db->ins_offset[i], hdr, record);
+    } else {
+        get_aln(core, &(db->aln[i]), NULL, NULL, hdr, record);
+        get_bases(core, db, i, mm, ml, ml_len, db->aln[i], NULL, NULL, hdr, record);
+    }
+
 }

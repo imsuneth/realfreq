@@ -46,8 +46,8 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help, "Usage: realfreq [options..] ref.fa\nrealfreq reads the input bam file path from stdin\n");
     fprintf(fp_help, "Options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));                                                    //0
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);                                                            //1
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str); //2
+    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);                                                           //1
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes); //2
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);                                                                        //3
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);                                                     //4
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));                                      //5
@@ -61,6 +61,8 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help,"   -v INT                     verbosity level [%d]\n",(int)get_log_level());                                                                               //13
     fprintf(fp_help,"   -V                         print version\n");                                                                                                           //14
     fprintf(fp_help,"   -w INT                     write output every INT seconds if new modifications found (-1: only at the end, 0: per input) [%d]\n", opt.write_interval);  //15
+    fprintf(fp_help,"   -I                         enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));                                                                                         //16
+    fprintf(fp_help,"   -H                         enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));                                                                                         //17
 }
 
 void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
@@ -195,9 +197,8 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
 
 int main(int argc, char* argv[]) {
 
-    double realtime0 = realtime();
-
-    char *ref_file = NULL;
+    char *mod_codes_str = NULL;
+    char *mod_threshes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -212,9 +213,9 @@ int main(int argc, char* argv[]) {
         if (c == 'b') {
             opt.bedmethyl_out = 1;
         } else if (c == 'c') {
-            opt.mod_codes_str = optarg;
+            mod_codes_str = optarg;
         } else if (c == 'm') {
-            opt.mod_threshes_str = optarg;
+            mod_threshes_str = optarg;
         } else if (c == 't') {
             opt.num_thread = atoi(optarg);
             if (opt.num_thread < 1) {
@@ -278,20 +279,18 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if(opt.mod_codes_str==NULL){
+    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        opt.mod_codes_str = "m";
+        mod_codes_str = "m";
     }
-    opt.n_mods = parse_mod_codes(opt.mod_codes_str);
     
-    if(opt.mod_threshes_str==NULL){
+    if(mod_threshes_str==NULL || strlen(mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
-        opt.mod_threshes_str = "0.8";
-    } else {
-        parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str, opt.n_mods);
-    }
-
-    print_mod_options(opt);
+        mod_threshes_str = "0.8";
+    } 
+    
+    parse_mod_codes(&opt, mod_codes_str);
+    parse_mod_threshes(&opt, mod_threshes_str);
 
     // No arguments given
     if (argc - optind != 1 || fp_help == stdout) {
@@ -303,9 +302,9 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    ref_file = argv[optind];
+    opt.ref_file = argv[optind];
 
-    if (ref_file == NULL) {
+    if (opt.ref_file == NULL) {
         WARNING("%s","Reference file not provided");
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
@@ -324,10 +323,18 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //load the reference genome
-    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
-    load_ref(ref_file);
-    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
+    //load the reference genome, get the contexts, and destroy the reference
+    double realtime1 = realtime();
+    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, opt.ref_file);
+    load_ref(opt.ref_file);
+    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
+
+    double realtime2 = realtime();
+    fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
+    load_ref_contexts(opt.n_mods, opt.req_mod_contexts);
+    fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
+
+    destroy_ref_forward();
 
     //initialise the freq_map
     khash_t(freqm)* freq_map = kh_init(freqm);
@@ -363,7 +370,9 @@ int main(int argc, char* argv[]) {
     }
     kh_destroy(freqm, freq_map);
 
-    destroy_ref();
+    destroy_ref(opt.n_mods);
+
+    free_opt(&opt);
 
     INFO("%s", "exiting\n");
     return 0;
