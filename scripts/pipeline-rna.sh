@@ -139,7 +139,7 @@ do
     echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${LOG}
 
     echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
-    ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${MINIMAP2} -t 8 -ax map-ont -uf --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t5=$(date)
     echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
     echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${LOG}

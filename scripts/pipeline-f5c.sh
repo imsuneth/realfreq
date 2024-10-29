@@ -130,49 +130,49 @@ do
 
     START_TIME=$(date)
     echo "[pipeline.sh::${START_TIME}]  Converting $P5_FILEPATH to $SLOW5_FILEPATH"
-    /usr/bin/time -v ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t2=$(date)
     echo "[pipeline.sh::${t2}]  Finished converting $P5_FILEPATH to $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${LOG}
 
     echo "[pipeline.sh::${t2}]  Running buttery-eel on $SLOW5_FILEPATH"
-    /usr/bin/time -v ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t3=$(date)
     echo "[pipeline.sh::${t3}]  Finished running buttery-eel on $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${LOG}
 
     echo "[pipeline.sh::${t3}]  Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
-    /usr/bin/time -v ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t4=$(date)
     echo "[pipeline.sh::${t4}]  Finished converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${LOG}
 
     echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
-    /usr/bin/time -v ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t5=$(date)
     echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
     echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${LOG}
 
     echo "[pipeline.sh::${t5}]  Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
-    /usr/bin/time -v ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t6=$(date)
     echo "[pipeline.sh::${t6}]  Finished sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${LOG}
 
     echo "[pipeline.sh::${t6}]  Indexing $BAM_FILEPATH"
-    /usr/bin/time -v ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t7=$(date)
     echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
     echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}
 
     echo "[pipeline.sh::${t7}]  Running f5c index on $SLOW5_FILEPATH"
-    /usr/bin/time -v ${F5C} index --slow5 $SLOW5_FILEPATH $FASTQ_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running f5c index on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${F5C} index --slow5 $SLOW5_FILEPATH $FASTQ_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running f5c index on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t8=$(date)
     echo "[pipeline.sh::${t8}]  Finished running f5c index on $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\tf5c-index\t${t7}\t${t8}" >> ${LOG}
 
     echo "[pipeline.sh::${t8}]  Running f5c call-methylation on $SLOW5_FILEPATH"
-    /usr/bin/time -v ${F5C} call-methylation --slow5 $SLOW5_FILEPATH -b $BAM_FILEPATH -g $REF -r $FASTQ_FILEPATH > $F5C_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running f5c call-methylation on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${F5C} call-methylation --slow5 $SLOW5_FILEPATH -b $BAM_FILEPATH -g $REF -r $FASTQ_FILEPATH > $F5C_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running f5c call-methylation on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t9=$(date)
     echo "[pipeline.sh::${t9}]  Finished running f5c call-methylation on $SLOW5_FILEPATH"
     echo -e "$P5_FILEPATH\tf5c\t${t8}\t${t9}" >> ${LOG}

@@ -85,7 +85,7 @@ do
 
     START_TIME=$(date)
     echo "[pipeline.sh::${t6}]  Indexing $MODBAM_FILEPATH"
-    /usr/bin/time -v ${SAMTOOLS} index -@ 8 $MODBAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $MODBAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} index -@ 8 $MODBAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $MODBAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
     t7=$(date)
     echo "[pipeline.sh::${t7}]  Finished indexing $MODBAM_FILEPATH"
     echo -e "$MODBAM_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}
