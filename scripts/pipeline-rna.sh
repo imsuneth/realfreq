@@ -13,6 +13,7 @@ NORMAL="\033[0;39m"
 
 # terminate script
 die() { echo -e $RED"$1"$NORMAL >&2; echo; exit 1; }
+failed() { echo -e $RED"$1"$NORMAL >&2; echo; echo $2 >> $TMP_FAILED; exit 1; }
 
 ## Handle flags
 while getopts "l:f:p:c" o; do
@@ -115,27 +116,27 @@ do
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
 
     START_TIME=$(date)
-    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die "blue-crab failed. check $LOG_FILEPATH"
+    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "blue-crab failed. check $LOG_FILEPATH" $P5_FILEPATH
     t2=$(date)
     echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${TIME_LOG}
 
-    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "buttery-eel failed. check $LOG_FILEPATH"
+    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
     t3=$(date)
     echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die "samtools fastq failed. check $LOG_FILEPATH"
+    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || failed "samtools fastq failed. check $LOG_FILEPATH" $P5_FILEPATH
     t4=$(date)
     echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${TIME_LOG}
 
-    ${MINIMAP2} -t 8 -ax map-ont -uf --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die "minimap2 failed. check $LOG_FILEPATH"
+    ${MINIMAP2} -t 8 -ax map-ont -uf --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || failed "minimap2 failed. check $LOG_FILEPATH" $P5_FILEPATH
     t5=$(date)
     echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "samtools sort failed. check $LOG_FILEPATH"
+    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools sort failed. check $LOG_FILEPATH" $P5_FILEPATH
     t6=$(date)
     echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "samtools index failed. check $LOG_FILEPATH"
+    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools index failed. check $LOG_FILEPATH" $P5_FILEPATH
     t7=$(date)
     echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
 

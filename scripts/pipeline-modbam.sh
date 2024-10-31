@@ -13,6 +13,7 @@ NORMAL="\033[0;39m"
 
 # terminate script
 die() { echo -e $RED"$1"$NORMAL >&2; echo; exit 1; }
+failed() { echo -e $RED"$1"$NORMAL >&2; echo; echo $2 >> $TMP_FAILED; exit 1; }
 
 ## Handle flags
 while getopts "l:f:p:c" o; do
@@ -73,7 +74,7 @@ do
     LOG_FILEPATH=$LOG_DIR/$MODBAM_PREFIX.log
 
     t1=$(date)
-    ${SAMTOOLS} index -@ 8 $MODBAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $MODBAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} index -@ 8 $MODBAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "Indexing $MODBAM_FILEPATH failed. Please check log at $LOG_FILEPATH" $MODBAM_FILEPATH
     t2=$(date)
     echo -e "$MODBAM_FILEPATH\tsam-index\t${t1}\t${t2}" >> ${TIME_LOG}
 
