@@ -3,7 +3,7 @@
 # HEADER
 #================================================================
 #% SYNOPSIS
-#+    ${SCRIPT_NAME} -m [directory] -g [dorado_bin] -f [reference] -x [reference_index] -e [model] [options ...]
+#+    ${SCRIPT_NAME} -m [directory] -f [reference] [options ...]
 #%
 #% DESCRIPTION
 #%    Realtime methylation frequency computation of a given sequencing directory.
@@ -13,10 +13,7 @@
 #%    -h, --help                                    Print help message
 #%    -i, --info                                    Print script information
 #%    -m [directory]                                The sequencing experiment directory to be monitored
-#%    -g [dorado_bin]                               Path to dorado bin
 #%    -f [reference]                                Reference genome for alignment
-#%    -x [reference_index]                          Reference genome index for alignment
-#%    -e [model]                                    Model for dorado basecalling
 #%    -o [output]                                   Output file for modification frequency [default: freq.tsv]
 #%    -r                                            Resumes a previous live conversion
 #%    -c [port]                                     Server port for realfreq
@@ -94,33 +91,20 @@ MAX_PROC=1
 # Assume necessary options not set
 monitor_dir_specified=false
 MONITOR_PARENT_DIR=
-DORADO_BIN=
-REF=
-REFIDX=
-MODEL=
 OUTPUT_FILE=
 server_port=""
 MONITOR_EXTENSION="pod5"
 bedmethyl_output=false
 
 ## Handle flags
-while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:a:b" o; do
+while getopts "m:f:o:l:hinryd:t:s:f:p:c:a:b" o; do
     case "${o}" in
         m)
             MONITOR_PARENT_DIR=${OPTARG}
             monitor_dir_specified=true
             ;;
-        g)
-            DORADO_BIN=${OPTARG}
-            ;;
         f)
             REF=${OPTARG}
-            ;;
-        x)
-            REFIDX=${OPTARG}
-            ;;
-        e)
-            MODEL=${OPTARG}
             ;;
         o)
             OUTPUT_FILE=${OPTARG}
@@ -132,7 +116,6 @@ while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:a:b" o; do
             usagefull
             exit 0
             ;;
-
         i)
             scriptinfo
             exit 0
@@ -146,7 +129,6 @@ while getopts "ihnyrm:g:f:x:e:o:l:t:d:f:s:p:c:a:b" o; do
         y)
             say_yes=true
             ;;
-
         d)
             TMP_FILE_PATH="${OPTARG}"
             ;;
@@ -183,35 +165,16 @@ YELLOW="\e[33m"
 RED="\e[31m"
 NORMAL="\033[0;39m"
 
+if [ ! -e $PIPELINE_SCRIPT ]; then
+    echo -e $RED"[$SCRIPT_NAME] Pipeline script $PIPELINE_SCRIPT not found. Exiting."$NORMAL
+    exit 1
+fi
+
 # If either format or monitor option not set
 if ! ($monitor_dir_specified); then
     if ! $monitor_dir_specified; then echo "[$SCRIPT_NAME] No monitor directory specified!"; fi
 	usage
 	exit 1
-fi
-
-# If DORADO_BIN not set
-if [ -z ${DORADO_BIN} ]; then
-    echo -e $RED"[$SCRIPT_NAME] Dorado binary not set! Set with -g option"$NORMAL
-    exit 1
-fi
-
-# If reference genome not set
-if [ -z ${REF} ]; then
-    echo -e $RED"[$SCRIPT_NAME] Reference genome not set! Set with -f option"$NORMAL
-    exit 1
-fi
-
-# If reference genome index not set
-if [ -z ${REFIDX} ]; then
-    echo -e $RED"[$SCRIPT_NAME] Reference genome index not set! Set with -x option"$NORMAL
-    exit 1
-fi
-
-# If model not set
-if [ -z ${MODEL} ]; then
-    echo -e $RED"[$SCRIPT_NAME] Model not set! Set with -e option"$NORMAL
-    exit 1
 fi
 
 # If output file not set
@@ -232,53 +195,41 @@ if [ $bedmethyl_output == true ]; then
     bedmethyl_output_flag="-b"
 fi
 
+resume_flag=
+if [ $resuming == true ]; then
+    resume_flag="-r"
+fi
+
 if [ -z ${REALFREQ_THREADS} ]; then
     REALFREQ_THREADS=1
 fi
 
-if [ -z ${REALFREQ_AUTO} ]; then
-    REALFREQ_AUTO=0
-fi
-
 # set the temporary file and log file
-[ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realfreq_attempted_list.log
-[ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realfreq_failed_list.log
+[ -z ${TMP_FILE_PATH} ] && TMP_FILE_PATH=${MONITOR_PARENT_DIR}/realfreq_success_list.log
+[ -z ${FAILED_LIST} ] && FAILED_LIST=${MONITOR_PARENT_DIR}/realfreq_fail_list.log
 [ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq_script.log
 MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #trace of the monitor for debugging
-START_END_TRACE=${MONITOR_PARENT_DIR}/realfreq_start_end_trace.log          #trace for debugging
 MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
+PIPELINE_TIME_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
+REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
 
-[ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
-[ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
-[ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
-[ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
-[ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
-
-
-${SLOW5TOOLS} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] slow5tools not found! Either put slow5tools under path or set SLOW5TOOLS variable, e.g.,export SLOW5TOOLS=/path/to/slow5tools"$NORMAL; exit 1;}
-${BLUECRAB} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] blue-crab not found! Either put blue-crab under path or set BLUECRAB variable, e.g.,export BLUECRAB=/path/to/blue-crab"$NORMAL; exit 1;}
-command -v ${BUTTERY_EEL} &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] buttery-eel not found! Either put buttery-eel under path or set BUTTERY_EEL variable, e.g.,export BUTTERY_EEL=/path/to/buttery-eel"$NORMAL; exit 1;}
-${MINIMAP2} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] minimap2 not found! Either put minimap2 under path or set MINIMAP2 variable, e.g.,export MINIMAP2=/path/to/minimap2"$NORMAL; exit 1;}
-${SAMTOOLS} --version &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] samtools not found! Either put samtools under path or set SAMTOOLS variable, e.g.,export SAMTOOLS=/path/to/samtools"$NORMAL; exit 1;}
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
+[ -z ${REALFREQ} ] && REALFREQ=realfreq
+${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
+
+# Perform pipeline tool check
+"${PIPELINE_SCRIPT}" -c || { echo -e $RED"[$SCRIPT_NAME] Pipeline script tool check failed. Exiting."$NORMAL; exit 1; }
 
 #== Echo the options ==#
 echo "[$SCRIPT_NAME] Current options:"
 echo -e "\tMonitor directory:\t $MONITOR_PARENT_DIR"
-echo -e "\tGuppy binary:\t\t $DORADO_BIN"
-echo -e "\tReference genome:\t $REF"
-echo -e "\tReference genome index:\t $REFIDX"
-echo -e "\tModel:\t\t\t $MODEL"
 echo -e "\tOutput file:\t\t $OUTPUT_FILE"
 echo -e "\tDump file:\t\t $DUMP_FILE"
-echo -e "\tResuming:\t\t $resuming"
-echo -e "\tRealtime:\t\t $realtime"
+echo -e "\tIs resuming:\t\t $resuming"
+echo -e "\tIs realtime:\t\t $realtime"
 echo -e "\tServer port:\t\t $server_port"
 echo -e "\tProcessed list:\t\t $TMP_FILE_PATH"
 echo -e "\tFailed list:\t\t $FAILED_LIST"
-echo -e "\tLog file:\t\t $LOG"
-echo -e "\tMonitor trace:\t\t $MONITOR_TRACE"
-echo -e "\tStart end trace:\t $START_END_TRACE"
 echo -e "\tIdle time:\t\t $TIME_INACTIVE"
 echo -e "\tMax pipeline processes:\t $MAX_PROC"
 echo -e "\tMonitor watch for:\t $MONITOR_EXTENSION"
@@ -286,6 +237,10 @@ echo -e "\tBedmethyl output:\t $bedmethyl_output"
 echo -e "\tREALFREQ_THREADS:\t $REALFREQ_THREADS"
 echo -e "\tREALFREQ_AUTO:\t\t $REALFREQ_AUTO"
 echo -e "\tPipeline script:\t $PIPELINE_SCRIPT"
+echo -e "\tMonitor trace:\t\t $MONITOR_TRACE"
+echo -e "\tLog file:\t\t $LOG"
+echo -e "\tPipeline time log:\t $PIPELINE_TIME_LOG"
+echo -e "\tRealfreq log:\t\t $REALFREQ_PROG_LOG"
 echo -e "\tSay yes:\t\t $say_yes"
 
 # wait till the monitor directory is available
@@ -295,8 +250,6 @@ if [ ! -d $MONITOR_PARENT_DIR ]; then
         sleep 1
     done
 fi
-
-#== Begin Run ==#
 
 # Warn before cleaning logs
 if ! $resuming && ! $say_yes; then # If not resuming
@@ -309,9 +262,10 @@ if ! $resuming && ! $say_yes; then # If not resuming
                     [Yy]* )
                         test -e $LOG && rm $LOG # Empty log file
                         test -e $MONITOR_TRACE && rm $MONITOR_TRACE # Empty log file
-                        test -e $START_END_TRACE && rm $START_END_TRACE # Empty log file
                         test -e $FAILED_LIST && rm $FAILED_LIST # Empty log file
                         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH # Empty log file
+                        test -e $PIPELINE_TIME_LOG && rm $PIPELINE_TIME_LOG # Empty log file
+                        test -e $REALFREQ_PROG_LOG && rm $REALFREQ_PROG_LOG # Empty log file
                         break
                         ;;
 
@@ -328,49 +282,34 @@ if ! $resuming && ! $say_yes; then # If not resuming
 
 fi
 
-# Create folders to copy the results (slow5 files logs)
-# test -d $MONITOR_PARENT_DIR/slow5         || mkdir $MONITOR_PARENT_DIR/slow5            || exit 1
-# echo "[$SCRIPT_NAME] SLOW5 files will be written to $MONITOR_PARENT_DIR/slow5"
-# test -d $MONITOR_PARENT_DIR/slow5_logs    || mkdir $MONITOR_PARENT_DIR/slow5_logs       || exit 1
-# echo "[$SCRIPT_NAME] SLOW5 p2s individual logs will be written to $MONITOR_PARENT_DIR/slow5_logs"
-
-
-# # Start realfreq
-# echo "[$SCRIPT_NAME] Starting realfreq" | tee $LOG
-# (
-# while read line; do
-#     if [[ $line == "Finished pipeline"* ]]; then
-#         pod5_file=$(echo $line | grep -oP '(?<=for ).*')
-#         file_name=$(basename $pod5_file)
-#         modbam_file="$pod5_file".remora.bam
-#         echo "$modbam_file" | realfreq -r $REF -o freq.tsv |&
-#         tee -a $LOG
-#     fi
-# done < $LOG
-# ) &
-
+# Function to catch the bam file output from various tools in pipeline
 catch_bam() {
     while read line; do
-        if [[ $line == *"Finished pipeline"* ]]; then
-            modbam_file=$(echo $line | grep -oP '(?<=output: ).*')
+        if [[ $line == *"realfreq-pipeline-output"* ]]; then
+            modbam_file=$(echo $line | grep -oP '(?<=realfreq-pipeline-output:).*')
             CURRENT_BAM_FILEPATH=$modbam_file
             echo "$modbam_file"
         fi
     done
 }
 
+# start realfreq
+echo "[$SCRIPT_NAME] Starting realfreq" | tee -a $LOG
+PIPE="pipeline_output.pipe"
+if [[ -p $PIPE ]]; then
+    rm $PIPE
+fi
+mkfifo $PIPE
+${REALFREQ} -t 1 ${bedmethyl_output_flag} ${server_port_flag} ${resume_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH < $PIPE 2>$REALFREQ_PROG_LOG &
 
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee -a $LOG
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
-    catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF |& tee $LOG
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
 
 else # Else assume realtime analysis is desired
 
-    # Monitor the new file creation in pod5 folder and execute realtime f5-pipeline script
-    # Close after timeout met
     if $resuming; then # If resuming option set
         echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
         if [ ! -e $DUMP_FILE ]; then
@@ -380,8 +319,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
-        catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -r -l $TMP_FILE_PATH $REF
+        "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
         
     else
         echo "[$SCRIPT_NAME] running" | tee -a $LOG
@@ -389,28 +327,16 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee $LOG |
-        catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE -l $TMP_FILE_PATH $REF
+        "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG  -f $FAILED_LIST -p $MAX_PROC  | catch_bam > $PIPE
         
-    fi
-    if [ ! -e $DUMP_FILE ]; then
-        echo "[$SCRIPT_NAME] Dump file $DUMP_FILE not found. Exiting." | tee -a $LOG
-        exit 1
     fi
     
     echo "[$SCRIPT_NAME] No new ${MONITOR_EXTENSION} files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
-    echo "[$SCRIPT_NAME] converting left overs" | tee -a $LOG
-
-    if [ -e $DUMP_FILE ]; then # If dump file exists, resume realfreq for the remaining files
-        resume_flag="-r"
-    else
-        resume_flag=""
-    fi
+    echo "[$SCRIPT_NAME] converting left overs" | tee -a $LO
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -d $TMP_FILE_PATH -l $START_END_TRACE -f $FAILED_LIST -p $MAX_PROC -g $DORADO_BIN -r $REF -i $REFIDX -m $MODEL |& tee -a $LOG |
-    catch_bam | realfreq -t 1 ${bedmethyl_output_flag} ${server_port_flag} -d $DUMP_FILE -o $OUTPUT_FILE ${resume_flag} -l $TMP_FILE_PATH $REF
+    "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG  -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
     
 fi
 
@@ -422,16 +348,13 @@ if [ ${NUMPOD5} -ne ${NUMBAM} ] ; then
 else
     echo "[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBAM blow5 files." | tee -a $LOG
 fi
-# POD5_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.pod5' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
-# BAM_SIZE=$(find $MONITOR_PARENT_DIR/ -name '*.remora.bam' -printf "%s\t%p\n" | awk 'BEGIN{sum=0}{sum=sum+$1}END{print sum/(1024*1024*1024)}')
-# SAVINGS=$(echo $POD5_SIZE - $BAM_SIZE | bc)
-# SAVINGS_PERCENT=$(echo "scale=2; $SAVINGS/$POD5_SIZE*100" | bc)
-# echo "POD5 size: $POD5_SIZE GB" | tee -a $LOG
-# echo "BAM size: $BAM_SIZE GB" | tee -a $LOG
-# echo "Savings: $SAVINGS GB ($SAVINGS_PERCENT%)" | tee -a $LOG
 
 echo "Scanning for errors in log files" | tee -a $LOG
 find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "ERROR" | tee -a $LOG
 echo "Scanning for warnings in log files" | tee -a $LOG
 find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "WARNING" | tee -a $LOG
 echo "[$SCRIPT_NAME] exiting" | tee -a $LOG
+
+# Cleanup
+wait
+rm $PIPE
