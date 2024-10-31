@@ -1,56 +1,33 @@
 #!/bin/bash
 
-TMP_FILE="attempted_list.log"
-TMP_FAILED="failed_list.log"
-DORADO_BIN=""
-REF=""
-REFIDX=""
-MODEL=""
-
-# terminate script
-die() {
-	echo -e "$1" >&2
-	echo
-	exit 1
-}
-
-LOG=start_end_trace.log
-
-# MAX_PROC=$(nproc)
-# MAX_PROC=$(echo "${MAX_PROC}/2" | bc)
+# Default values
+TIME_LOG="realfreq_pipeline_time.log"
+TMP_FAILED="realfreq_failed_list.log"
 MAX_PROC=1
+CHECK_TOOLS=false
 
-# Colour codes for printing
+# Colour codes
 YELLOW="\e[33m"
 RED="\e[31m"
 NORMAL="\033[0;39m"
 
+# terminate script
+die() { echo -e $RED"$1"$NORMAL >&2; echo; exit 1; }
+
 ## Handle flags
-while getopts "d:l:f:p:g:r:i:m:" o; do
+while getopts "l:f:p:c" o; do
     case "${o}" in
-        d)
-            TMP_FILE=${OPTARG}
+        l)
+            TIME_LOG=${OPTARG}
             ;;
-		l)
-            LOG=${OPTARG}
-			;;
         f)
             TMP_FAILED=${OPTARG}
             ;;
         p)
             MAX_PROC=${OPTARG}
             ;;
-        g)
-            DORADO_BIN=${OPTARG}
-            ;;
-        r) 
-            REF=${OPTARG}
-            ;;
-        i)  
-            REFIDX=${OPTARG}
-            ;;
-        m)  
-            MODEL=${OPTARG}
+        c)
+            CHECK_TOOLS=true
             ;;
         *)
             echo "[pipeline.sh] Incorrect args"
@@ -60,21 +37,43 @@ while getopts "d:l:f:p:g:r:i:m:" o; do
 done
 shift $((OPTIND-1))
 
-$SLOW5TOOLS --version &> /dev/null || die $RED"[pipeline.sh] slow5tools not found in path. Exiting."$NORMAL
-$BLUECRAB --version &> /dev/null || die $RED"[pipeline.sh] bluecrab not found in path. Exiting."$NORMAL
-command -v $BUTTERY_EEL &> /dev/null || die $RED"[pipeline.sh] buttery-eel not found in path. Exiting."$NORMAL
-$MINIMAP2 --version &> /dev/null || die $RED"[pipeline.sh] minimap2 not found in path. Exiting."$NORMAL
-$SAMTOOLS --version &> /dev/null || die $RED"[pipeline.sh] samtools not found in path. Exiting."$NORMAL
+#====================User Start - Tool check====================
+
+[ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
+[ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
+[ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
+[ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
+[ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
+[ -z ${REALFREQ} ] && export REALFREQ=realfreq
+
+$SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
+$BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
+command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
+$MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
+$SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
 
 EEL="$BUTTERY_EEL -g $DORADO_BIN --port 5000 --use_tcp --device cuda:all"
 
+[ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
+[ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=/path/to/dorado_model. Exiting."
+[ -z ${REF} ] && die "[pipeline.sh] REF not set. export REF=/path/to/ref.fa. Exiting."
+[ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
+
+#====================User End - Tool check====================
+
+if [ "$CHECK_TOOLS" = true ]; then
+    echo "[pipeline.sh] Tool check successful"
+    exit 0
+fi
+
 echo "[pipeline.sh] Starting pipeline with $MAX_PROC max processes"
-#test -e ${LOG}  && rm ${LOG}
 counter=0
-while read FILE
+while read PIPELINE_INPUT
 do
 (
-    P5_FILEPATH=$FILE # first argument
+    #=======================User Start - Pipeline=======================
+
+    P5_FILEPATH=$PIPELINE_INPUT # first argument
     P5_DIR=${P5_FILEPATH%/*} # strip filename from .pod5 filepath
     PARENT_DIR=${P5_DIR%/*} # get folder one heirarchy higher
     # name of the .pod5 file (strip the path and get only the name with extension)
@@ -117,50 +116,36 @@ do
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
 
-    test -e $SLOW5_FILEPATH &&  { echo -e $RED"$SLOW5_FILEPATH already exists. Converting $FILE to $SLOW5_FILEPATH failed."$NORMAL; echo $FILE >> $TMP_FAILED; }
-
-    START_TIME=$(date)
-    echo "[pipeline.sh::${START_TIME}]  Converting $P5_FILEPATH to $SLOW5_FILEPATH"
-    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Converting $P5_FILEPATH to $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    t1=$(date)
+    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || die "blue-crab failed. check $LOG_FILEPATH"
     t2=$(date)
-    echo "[pipeline.sh::${t2}]  Finished converting $P5_FILEPATH to $SLOW5_FILEPATH"
-    echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${LOG}
+    echo -e "$P5_FILEPATH\tp2s\t${t1}\t${t2}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${t2}]  Running buttery-eel on $SLOW5_FILEPATH"
-    ${EEL} --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Running buttery-eel on $SLOW5_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "buttery-eel failed. check $LOG_FILEPATH"
     t3=$(date)
-    echo "[pipeline.sh::${t3}]  Finished running buttery-eel on $SLOW5_FILEPATH"
-    echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${LOG}
+    echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${t3}]  Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
-    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die $RED"Converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || die "samtools fastq failed. check $LOG_FILEPATH"
     t4=$(date)
-    echo "[pipeline.sh::${t4}]  Finished converting $UNALN_SAM_FILEPATH to $FASTQ_FILEPATH"
-    echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${LOG}
+    echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${t4}]  Running minimap2 on $FASTQ_FILEPATH"
-    ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die $RED"Running minimap2 on $FASTQ_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || die "minimap2 failed. check $LOG_FILEPATH"
     t5=$(date)
-    echo "[pipeline.sh::${t5}]  Finished running minimap2 on $FASTQ_FILEPATH"
-    echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${LOG}
+    echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${t5}]  Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
-    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "samtools sort failed. check $LOG_FILEPATH"
     t6=$(date)
-    echo "[pipeline.sh::${t6}]  Finished sorting $UNSORTED_BAM_FILEPATH to $BAM_FILEPATH"
-    echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${LOG}
+    echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${t6}]  Indexing $BAM_FILEPATH"
-    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die $RED"Indexing $BAM_FILEPATH failed. Please check log at $LOG_FILEPATH"$NORMAL
+    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || die "samtools index failed. check $LOG_FILEPATH"
     t7=$(date)
-    echo "[pipeline.sh::${t7}]  Finished indexing $BAM_FILEPATH"
-    echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${LOG}
-    
-    END_TIME=$(date)
+    echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
 
-    echo "[pipeline.sh::${END_TIME}]  Finished pipeline for $P5_FILEPATH output: $BAM_FILEPATH"
-   
-    echo -e "${P5_FILEPATH}\ttotal\t${START_TIME}\t${END_TIME}" >> ${LOG}
+
+    PIPELINE_OUTPUT="$BAM_FILEPATH"
+    #=======================User End - Pipeline=======================
+    
+    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then
