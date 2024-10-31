@@ -44,7 +44,6 @@ shift $((OPTIND-1))
 [ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
 [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
 [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
-[ -z ${REALFREQ} ] && export REALFREQ=realfreq
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
 $BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
@@ -52,11 +51,10 @@ command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found
 $MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
 $SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
 
-EEL="$BUTTERY_EEL -g $DORADO_BIN --port 5000 --use_tcp --device cuda:all"
+EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
 
 [ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
 [ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=/path/to/dorado_model. Exiting."
-[ -z ${REF} ] && die "[pipeline.sh] REF not set. export REF=/path/to/ref.fa. Exiting."
 [ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
 
 #====================User End - Tool check====================
@@ -141,11 +139,12 @@ do
     t7=$(date)
     echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
 
+    echo "[pipeline.sh] Done $P5_FILEPATH"
 
     PIPELINE_OUTPUT="$BAM_FILEPATH"
     #=======================User End - Pipeline=======================
     
-    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
+    echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then

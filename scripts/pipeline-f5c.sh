@@ -44,15 +44,16 @@ shift $((OPTIND-1))
 [ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
 [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
 [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
-[ -z ${REALFREQ} ] && export REALFREQ=realfreq
+[ -z ${F5C} ] && export F5C=f5c
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
 $BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
 command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
 $MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
 $SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
+$F5C --version &> /dev/null || die "[pipeline.sh] f5c not found. Add to PATH or export F5C=/path/to/f5c. Exiting."
 
-EEL="$BUTTERY_EEL -g $DORADO_BIN --port 5000 --use_tcp --device cuda:all"
+EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
 
 [ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
 [ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=/path/to/dorado_model. Exiting."
@@ -149,10 +150,12 @@ do
     t9=$(date)
     echo -e "$P5_FILEPATH\tf5c\t${t8}\t${t9}" >> ${TIME_LOG}
 
+    echo "[pipeline.sh] Done $P5_FILEPATH"
+
     PIPELINE_OUTPUT="$F5C_FILEPATH"
     #=======================User End - Pipeline=======================
     
-    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
+    echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then

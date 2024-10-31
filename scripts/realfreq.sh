@@ -210,46 +210,16 @@ fi
 [ -z ${LOG} ] && LOG=${MONITOR_PARENT_DIR}/realfreq_script.log
 MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #trace of the monitor for debugging
 MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
-PIPELINE_TIME_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
+PIPELINE_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
 REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
 
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
-[ -z ${REALFREQ} ] && REALFREQ=realfreq
+[ -z ${REALFREQ} ] && export REALFREQ=realfreq
 ${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
+[ -z ${REF} ] && echo $RED"[realfreq.sh] REF not set. export REF=/path/to/ref.fa. Ignore if not using default pipeline."$NORMAL
 
 # Perform pipeline tool check
 "${PIPELINE_SCRIPT}" -c || { echo -e $RED"[$SCRIPT_NAME] Pipeline script tool check failed. Exiting."$NORMAL; exit 1; }
-
-#== Echo the options ==#
-echo "[$SCRIPT_NAME] Current options:"
-echo -e "\tMonitor directory:\t $MONITOR_PARENT_DIR"
-echo -e "\tOutput file:\t\t $OUTPUT_FILE"
-echo -e "\tDump file:\t\t $DUMP_FILE"
-echo -e "\tIs resuming:\t\t $resuming"
-echo -e "\tIs realtime:\t\t $realtime"
-echo -e "\tServer port:\t\t $server_port"
-echo -e "\tProcessed list:\t\t $TMP_FILE_PATH"
-echo -e "\tFailed list:\t\t $FAILED_LIST"
-echo -e "\tIdle time:\t\t $TIME_INACTIVE"
-echo -e "\tMax pipeline processes:\t $MAX_PROC"
-echo -e "\tMonitor watch for:\t $MONITOR_EXTENSION"
-echo -e "\tBedmethyl output:\t $bedmethyl_output"
-echo -e "\tREALFREQ_THREADS:\t $REALFREQ_THREADS"
-echo -e "\tREALFREQ_AUTO:\t\t $REALFREQ_AUTO"
-echo -e "\tPipeline script:\t $PIPELINE_SCRIPT"
-echo -e "\tMonitor trace:\t\t $MONITOR_TRACE"
-echo -e "\tLog file:\t\t $LOG"
-echo -e "\tPipeline time log:\t $PIPELINE_TIME_LOG"
-echo -e "\tRealfreq log:\t\t $REALFREQ_PROG_LOG"
-echo -e "\tSay yes:\t\t $say_yes"
-
-# wait till the monitor directory is available
-if [ ! -d $MONITOR_PARENT_DIR ]; then
-    echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
-    while [ ! -d $MONITOR_PARENT_DIR ]; do
-        sleep 1
-    done
-fi
 
 # Warn before cleaning logs
 if ! $resuming && ! $say_yes; then # If not resuming
@@ -264,7 +234,7 @@ if ! $resuming && ! $say_yes; then # If not resuming
                         test -e $MONITOR_TRACE && rm $MONITOR_TRACE # Empty log file
                         test -e $FAILED_LIST && rm $FAILED_LIST # Empty log file
                         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH # Empty log file
-                        test -e $PIPELINE_TIME_LOG && rm $PIPELINE_TIME_LOG # Empty log file
+                        test -e $PIPELINE_LOG && rm $PIPELINE_LOG # Empty log file
                         test -e $REALFREQ_PROG_LOG && rm $REALFREQ_PROG_LOG # Empty log file
                         break
                         ;;
@@ -282,79 +252,105 @@ if ! $resuming && ! $say_yes; then # If not resuming
 
 fi
 
-# Function to catch the bam file output from various tools in pipeline
-catch_bam() {
-    while read line; do
-        if [[ $line == *"realfreq-pipeline-output"* ]]; then
-            modbam_file=$(echo $line | grep -oP '(?<=realfreq-pipeline-output:).*')
-            CURRENT_BAM_FILEPATH=$modbam_file
-            echo "$modbam_file"
-        fi
+# Redirect stdout and stderr to log file as well as console
+exec > >(tee -a "$LOG") 2> >(tee -a "$LOG")
+
+#== Echo the options ==#
+(
+cat << EOF
+    Monitor directory: $MONITOR_PARENT_DIR
+    Output file: $OUTPUT_FILE
+    Dump file: $DUMP_FILE
+    Is resuming: $resuming
+    Is realtime: $realtime
+    Server port: $server_port
+    Processed list: $TMP_FILE_PATH
+    Failed list: $FAILED_LIST
+    Idle time: $TIME_INACTIVE
+    Max pipeline processes: $MAX_PROC
+    Monitor watch for: $MONITOR_EXTENSION
+    Bedmethyl output: $bedmethyl_output
+    REALFREQ_THREADS: $REALFREQ_THREADS
+    REALFREQ_AUTO: $REALFREQ_AUTO
+    Pipeline script: $PIPELINE_SCRIPT
+    Monitor trace: $MONITOR_TRACE
+    Realfreq script log: $LOG
+    Pipeline log: $PIPELINE_LOG
+    Realfreq log: $REALFREQ_PROG_LOG
+    Say yes: $say_yes
+EOF
+)
+
+# wait till the monitor directory is available
+if [ ! -d $MONITOR_PARENT_DIR ]; then
+    echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
+    while [ ! -d $MONITOR_PARENT_DIR ]; do
+        sleep 1
     done
-}
+fi
 
 # start realfreq
-echo "[$SCRIPT_NAME] Starting realfreq" | tee -a $LOG
-PIPE="pipeline_output.pipe"
-if [[ -p $PIPE ]]; then
-    rm $PIPE
+echo "[$SCRIPT_NAME] Starting realfreq"
+export REALFREQ_PIPE="$MONITOR_PARENT_DIR/realfreq.pipe"
+if [[ -p $REALFREQ_PIPE ]]; then
+    rm $REALFREQ_PIPE
 fi
-mkfifo $PIPE
-${REALFREQ} -t 1 ${bedmethyl_output_flag} ${server_port_flag} ${resume_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH < $PIPE 2>$REALFREQ_PROG_LOG &
+mkfifo $REALFREQ_PIPE || { echo -e $RED"[$SCRIPT_NAME] Failed to create pipe $REALFREQ_PIPE. Exiting."$NORMAL; exit 1; }
+${REALFREQ} -t 1 ${bedmethyl_output_flag} ${server_port_flag} ${resume_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH < $REALFREQ_PIPE 2>$REALFREQ_PROG_LOG &
 
 if ! $realtime; then # If non-realtime option set
-    echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR" | tee -a $LOG
+    echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR"
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
 
 else # Else assume realtime analysis is desired
 
     if $resuming; then # If resuming option set
-        echo "[$SCRIPT_NAME] resuming" | tee -a $LOG
+        echo "[$SCRIPT_NAME] resuming"
         if [ ! -e $DUMP_FILE ]; then
-            echo "[$SCRIPT_NAME] Dump file $DUMP_FILE not found. Exiting." | tee -a $LOG
+            echo "[$SCRIPT_NAME] Dump file $DUMP_FILE not found. Exiting."
             exit 1
         fi
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
         
     else
-        echo "[$SCRIPT_NAME] running" | tee -a $LOG
+        echo "[$SCRIPT_NAME] running"
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG  -f $FAILED_LIST -p $MAX_PROC  | catch_bam > $PIPE
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC
         
     fi
     
-    echo "[$SCRIPT_NAME] No new ${MONITOR_EXTENSION} files found in last ${TIME_INACTIVE} seconds." | tee -a $LOG
+    echo "[$SCRIPT_NAME] No new ${MONITOR_EXTENSION} files found in last ${TIME_INACTIVE} seconds."
     echo "[$SCRIPT_NAME] converting left overs" | tee -a $LO
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -l $PIPELINE_TIME_LOG  -f $FAILED_LIST -p $MAX_PROC | catch_bam > $PIPE
+    "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC
     
 fi
 
-test -e $FAILED_LIST && echo -e $RED"[$SCRIPT_NAME] $(wc -l $FAILED_LIST) files failed the pipeline. See $FAILED_LIST for the list"$NORMAL | tee -a $LOG
+test -e $FAILED_LIST && echo -e $RED"[$SCRIPT_NAME] $(wc -l $FAILED_LIST) files failed the pipeline. See $FAILED_LIST for the list"$NORMAL
 NUMPOD5=$(find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | wc -l)
 NUMBAM=$(find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | wc -l)
 if [ ${NUMPOD5} -ne ${NUMBAM} ] ; then
-    echo -e $RED"[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBAM bam files. Check the logs for any failures."$NORMAL | tee -a $LOG
+    echo -e $RED"[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, but only $NUMBAM bam files. Check the logs for any failures."$NORMAL
 else
-    echo "[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBAM blow5 files." | tee -a $LOG
+    echo "[$SCRIPT_NAME] In $MONITOR_PARENT_DIR, $NUMPOD5 pod5 files, $NUMBAM blow5 files."
 fi
 
-echo "Scanning for errors in log files" | tee -a $LOG
-find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "ERROR" | tee -a $LOG
-echo "Scanning for warnings in log files" | tee -a $LOG
-find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "WARNING" | tee -a $LOG
-echo "[$SCRIPT_NAME] exiting" | tee -a $LOG
+echo "Scanning for errors in log files"
+find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "ERROR"
+echo "Scanning for warnings in log files"
+find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "WARNING"
+echo "[$SCRIPT_NAME] exiting"
 
 # Cleanup
 wait
-rm $PIPE
+rm $REALFREQ_PIPE
