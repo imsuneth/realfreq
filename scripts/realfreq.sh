@@ -13,7 +13,6 @@
 #%    -h, --help                                    Print help message
 #%    -i, --info                                    Print script information
 #%    -m [directory]                                The sequencing experiment directory to be monitored
-#%    -f [reference]                                Reference genome for alignment
 #%    -o [output]                                   Output file for modification frequency [default: freq.tsv]
 #%    -r                                            Resumes a previous live conversion
 #%    -c [port]                                     Server port for realfreq
@@ -47,7 +46,7 @@
 #-    copies of the Software, and to permit persons to whom the Software is
 #-    furnished to do so, subject to the following conditions:
 #-
-#-    The above copyright notice and this permission notice shall be included in all
+#-    The above copyright notice and this permission notsice shall be included in all
 #-    copies or substantial portions of the Software.
 #-
 #-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -97,14 +96,11 @@ MONITOR_EXTENSION="pod5"
 bedmethyl_output=false
 
 ## Handle flags
-while getopts "m:f:o:l:hinryd:t:s:f:p:c:a:b" o; do
+while getopts "m:o:l:hinryd:t:s:f:p:c:a:b" o; do
     case "${o}" in
         m)
             MONITOR_PARENT_DIR=${OPTARG}
             monitor_dir_specified=true
-            ;;
-        f)
-            REF=${OPTARG}
             ;;
         o)
             OUTPUT_FILE=${OPTARG}
