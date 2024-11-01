@@ -34,33 +34,33 @@ If prerequisits are availbale, execute the following command on a terminal.
 
 ![usage-default](docs/figs/usage-default.png)
 ```bash
-export DORADO_BIN=/ont-dorado-server/bin
-export REF=/ref/hg38noAlt.fa
-export REFIDX=/ref/hg38noAlt.idx
-export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-./scripts/realfreq.sh -g /$DORADO_BIN -m /data/minknow/exp -f $REF -x $REFIDX -e $MODEL
+export DORADO_BIN=/data2/suneth/tools/ont-dorado-server/bin
+export REF=/data2/suneth/data/hg38noAlt.fa
+export REFIDX=/genome/hg38noAlt.idx
+export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
+
+./scripts/realfreq.sh -m /data/exp_id
 ```
 
 2. When "Modified bases" and "Alignment" are turned ON in MinKNOW, monitor BAM files, call modifications and get frequencies using realfreq.
 
 ![usage-modbam](docs/figs/usage-modbam.png)
 ```bash
-export DORADO_BIN=/ont-dorado-server/bin
-export REF=/ref/hg38noAlt.fa
-export REFIDX=/ref/hg38noAlt.idx
-export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-./scripts/realfreq.sh -g /$DORADO_BIN -m /data/minknow/exp-modbam -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-modbam.sh -a "bam"
+export REF=/data2/suneth/data/hg38noAlt.fa
+
+./scripts/realfreq.sh -m /data/exp_id -a "bam" -s scripts/pipeline-modbam.sh
 ```
 
 3. Monitor POD5 files, convert to modBAM and call modification using f5c custom pipeline and get frequencies using realfreq.
 
 ![usage-f5c](docs/figs/usage-f5c.png)
 ```bash
-export DORADO_BIN=/ont-dorado-server/bin
-export REF=/ref/hg38noAlt.fa
-export REFIDX=/ref/hg38noAlt.idx
-export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
-./scripts/realfreq.sh -g /$DORADO_BIN -m /data/minknow/exp-f5c -f $REF -x $REFIDX -e $MODEL -s scripts/pipeline-f5c.sh
+export DORADO_BIN=/data2/suneth/tools/ont-dorado-server/bin
+export REF=/data2/suneth/data/hg38noAlt.fa
+export REFIDX=/genome/hg38noAlt.idx
+export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
+
+./scripts/realfreq.sh -m /data/exp_id -s scripts/pipeline-f5c.sh
 ```
 
 ### Command
@@ -69,13 +69,10 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 ```
 ### OPTIONS
 ```bash
+ OPTIONS
     -h, --help                                    Print help message
     -i, --info                                    Print script information
     -m [directory]                                The sequencing experiment directory to be monitored
-    -g [guppy_bin]                                Path to dorado bin
-    -f [reference]                                Reference genome for alignment
-    -x [reference_index]                          Reference genome index for alignment
-    -e [model]                                    Model for dorado basecalling
     -o [output]                                   Output file for modification frequency [default: freq.tsv]
     -r                                            Resumes a previous live conversion
     -c [port]                                     Server port for realfreq
@@ -84,7 +81,7 @@ export MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
     -a [extension]                                Watch for files with extension [default: pod5]
     -b                                            Output bedmethyl format
 
-ADVANCED/DEBUGGING OPTIONS
+ ADVANCED/DEBUGGING OPTIONS
 
     -n                                            Specify non-realtime analysis
     -d [filename]                                 Specify custom location for the list of attempted files [default: monitor_dir/realfreq_attempted_list.log]
@@ -94,7 +91,7 @@ ADVANCED/DEBUGGING OPTIONS
     -y, --yes                                     Say yes to 'Are you sure?' message in advance for overwriting
 ```
 ### Environment variable
-- REALFREQ_THREADS to set number of threads used for modification calling (default 1)
+- REALFREQ_THREADS: number of threads used for modification calling (default 1)
 - REALFREQ_AUTO: make realfreq.sh terminate at the end of MinKNOW sequencing run
 ```bash
 export REALFREQ_THREADS=8
