@@ -34,8 +34,8 @@ If prerequisits are availbale, execute the following command on a terminal.
 
 ![usage-default](docs/figs/usage-default.png)
 ```bash
-export DORADO_BIN=/data2/suneth/tools/ont-dorado-server/bin
-export REF=/data2/suneth/data/hg38noAlt.fa
+export DORADO_BIN=/ont-dorado-server/bin
+export REF=/genome/hg38noAlt.fa
 export REFIDX=/genome/hg38noAlt.idx
 export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
@@ -46,7 +46,7 @@ export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
 ![usage-modbam](docs/figs/usage-modbam.png)
 ```bash
-export REF=/data2/suneth/data/hg38noAlt.fa
+export REF=/genome/hg38noAlt.fa
 
 ./scripts/realfreq.sh -m /data/exp_id -a "bam" -s scripts/pipeline-modbam.sh
 ```
@@ -55,8 +55,8 @@ export REF=/data2/suneth/data/hg38noAlt.fa
 
 ![usage-f5c](docs/figs/usage-f5c.png)
 ```bash
-export DORADO_BIN=/data2/suneth/tools/ont-dorado-server/bin
-export REF=/data2/suneth/data/hg38noAlt.fa
+export DORADO_BIN=/ont-dorado-server/bin
+export REF=/genome/hg38noAlt.fa
 export REFIDX=/genome/hg38noAlt.idx
 export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
