@@ -181,17 +181,17 @@ fi
 
 DUMP_FILE="$MONITOR_PARENT_DIR/realfreq_prog_dump.tmp"
 
-server_port_flag=
+server_port_flag=""
 if [ ! $server_port == "" ]; then
     server_port_flag="-s $server_port"
 fi
 
-bedmethyl_output_flag=
+bedmethyl_output_flag=""
 if [ $bedmethyl_output == true ]; then
     bedmethyl_output_flag="-b"
 fi
 
-resume_flag=
+resume_flag=""
 if [ $resuming == true ]; then
     resume_flag="-r"
 fi
@@ -208,6 +208,8 @@ MONITOR_TRACE=${MONITOR_PARENT_DIR}/realfreq_monitor_trace.log              #tra
 MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #used internally to communicate with the monitor
 PIPELINE_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
 REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
+
+export REALFREQ_PIPE="$MONITOR_PARENT_DIR/realfreq.pipe"
 
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
 [ -z ${REALFREQ} ] && export REALFREQ=realfreq
@@ -232,6 +234,10 @@ if ! $resuming && ! $say_yes; then # If not resuming
                         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH # Empty log file
                         test -e $PIPELINE_LOG && rm $PIPELINE_LOG # Empty log file
                         test -e $REALFREQ_PROG_LOG && rm $REALFREQ_PROG_LOG # Empty log file
+                        # check if $REALFREQ_PIPE exists and remove it
+                        if [[ -p $REALFREQ_PIPE ]]; then
+                            rm -f $REALFREQ_PIPE
+                        fi
                         break
                         ;;
 
@@ -277,6 +283,9 @@ cat << EOF
 EOF
 )
 
+#echo pid of the script
+echo "[$SCRIPT_NAME] PID: $$"
+
 # wait till the monitor directory is available
 if [ ! -d $MONITOR_PARENT_DIR ]; then
     echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
@@ -285,20 +294,30 @@ if [ ! -d $MONITOR_PARENT_DIR ]; then
     done
 fi
 
-# start realfreq
-echo "[$SCRIPT_NAME] Starting realfreq"
-export REALFREQ_PIPE="$MONITOR_PARENT_DIR/realfreq.pipe"
-if [[ -p $REALFREQ_PIPE ]]; then
-    rm $REALFREQ_PIPE
+if [ ! -p "$REALFREQ_PIPE" ]; then
+    mkfifo $REALFREQ_PIPE
 fi
-mkfifo $REALFREQ_PIPE || { echo -e $RED"[$SCRIPT_NAME] Failed to create pipe $REALFREQ_PIPE. Exiting."$NORMAL; exit 1; }
-${REALFREQ} -t 1 ${bedmethyl_output_flag} ${server_port_flag} ${resume_flag} -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH < $REALFREQ_PIPE 2>$REALFREQ_PROG_LOG &
+
+# start realfreq in the background with $REALFREQ_PIPE as input and RREALFREQ_PROG_LOG as stderr
+start_realfreq(){
+    echo "[$SCRIPT_NAME] Starting realfreq"
+    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2> $REALFREQ_PROG_LOG  < $REALFREQ_PIPE
+    echo "[$SCRIPT_NAME] realfreq exited"
+}
+
+start_realfreq &
+REALFREQ_PID=$!
+
+echo "" > $REALFREQ_PIPE
+
+trap "kill $REALFREQ_PID; rm -f $REALFREQ_PIPE" EXIT
 
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR"
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
+    echo "EOF" > $REALFREQ_PIPE
 
 else # Else assume realtime analysis is desired
 
@@ -329,6 +348,7 @@ else # Else assume realtime analysis is desired
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
     "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC
+    echo "EOF" > $REALFREQ_PIPE
     
 fi
 
@@ -347,6 +367,4 @@ echo "Scanning for warnings in log files"
 find $MONITOR_PARENT_DIR/ -name '*.log' -exec cat {} \; | grep -i "WARNING"
 echo "[$SCRIPT_NAME] exiting"
 
-# Cleanup
-wait
-rm $REALFREQ_PIPE
+exit 0

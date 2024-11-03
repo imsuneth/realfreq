@@ -80,6 +80,8 @@ flag=false # No flag on exit enabled by default
 existing=false # Existing files not outputed by default
 ENDS_WITH="pod5" # Default file extension to monitor
 
+INOTIFY_PID=0 # Initialise inotify PID
+
 ## Handle flags
 while getopts "ehift:n:d:x:" o; do
     case "${o}" in
@@ -143,6 +145,10 @@ exit_safely() { # Function to use on exit
         echo -1
     fi
 
+    if [ $INOTIFY_PID -ne 0 ]; then # If inotify PID is not 0
+        kill $INOTIFY_PID # Kill the inotify process
+    fi
+
     >&2 echo "[monitor.sh] exiting"
 
     # (todo : kill background while loop?)
@@ -151,8 +157,6 @@ exit_safely() { # Function to use on exit
 touch $TEMP_FILE # Create the temporary file
 
 trap exit_safely EXIT # Catch exit of script with function
-
-
 
 i=0 # Initialise file counter
 ## Set up monitoring of all input directory indefinitely for a file being written or moved to them
@@ -177,7 +181,7 @@ i=0 # Initialise file counter
     done < <(inotifywait -r -m ${monitor_dirs[@]} -e close_write -e moved_to) # Pass output to while loop
 ) & # Push to the background
 
-
+INOTIFY_PID=$! # Get the PID of the background process
 
 if $timeout; then # If timeout option set
     reset_timer # Reset the timer
