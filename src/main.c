@@ -78,10 +78,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
             print_freq_output(opt, freq_map);
             dump_stats_map(opt.dump_file, freq_map);
             break;
-        }
-        if(ret!=1) { 
-            continue;
-        }
+        } 
 
         double realtime0 = realtime();
         if (strcmp("EOF", file_path) == 0) { //EOF received
@@ -159,7 +156,8 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         } else if (strstr(file_path, ".tsv") != NULL) { //tsv file
             process_tsv_file(file_path, opt, freq_map);
         } else {
-            WARNING("File format not supported: %s", file_path);
+            sleep(1);
+            continue;
         }
         
         double realtime1 = realtime();
