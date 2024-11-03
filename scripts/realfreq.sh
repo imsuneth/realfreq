@@ -283,9 +283,6 @@ cat << EOF
 EOF
 )
 
-#echo pid of the script
-echo "[$SCRIPT_NAME] PID: $$"
-
 # wait till the monitor directory is available
 if [ ! -d $MONITOR_PARENT_DIR ]; then
     echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
