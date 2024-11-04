@@ -145,7 +145,7 @@ do
     PIPELINE_OUTPUT="$BAM_FILEPATH"
     #=======================User End - Pipeline=======================
     
-    echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
+    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then

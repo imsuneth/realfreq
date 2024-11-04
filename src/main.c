@@ -79,14 +79,21 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
             dump_stats_map(opt.dump_file, freq_map);
             break;
         } 
-
-        double realtime0 = realtime();
-        if (strcmp("EOF", file_path) == 0) { //EOF received
-            INFO("%s", "EOF received");
+        if (feof(stdin)) {
+            INFO("%s", "end of stdin");
             print_freq_output(opt, freq_map);
             dump_stats_map(opt.dump_file, freq_map);
             break;
-        } else if (strstr(file_path, ".bam") != NULL) { //bam file
+        }
+        if(ret!=1) {
+            INFO("%s", "error reading from stdin");
+            print_freq_output(opt, freq_map);
+            dump_stats_map(opt.dump_file, freq_map);
+            break;
+        }
+
+        double realtime0 = realtime();
+        if (strstr(file_path, ".bam") != NULL) { //bam file
             INFO("processing file %s", file_path);
             //initialise the core data structure
             core_t* core = init_core(file_path, opt, realtime0);
@@ -129,6 +136,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
                     break;
                 }
                 counter++;
+                WARNING("File format not supported: %s", file_path);
             }
 
             // free the databatch
@@ -156,7 +164,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         } else if (strstr(file_path, ".tsv") != NULL) { //tsv file
             process_tsv_file(file_path, opt, freq_map);
         } else {
-            sleep(1);
+            WARNING("File format not supported: %s", file_path);
             continue;
         }
         

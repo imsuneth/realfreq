@@ -209,8 +209,6 @@ MONITOR_TEMP=${MONITOR_PARENT_DIR}/realfreq_monitor_temp                    #use
 PIPELINE_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
 REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
 
-export REALFREQ_PIPE="$MONITOR_PARENT_DIR/realfreq.pipe"
-
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
 [ -z ${REALFREQ} ] && export REALFREQ=realfreq
 ${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
@@ -234,10 +232,6 @@ if ! $resuming && ! $say_yes; then # If not resuming
                         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH # Empty log file
                         test -e $PIPELINE_LOG && rm $PIPELINE_LOG # Empty log file
                         test -e $REALFREQ_PROG_LOG && rm $REALFREQ_PROG_LOG # Empty log file
-                        # check if $REALFREQ_PIPE exists and remove it
-                        if [[ -p $REALFREQ_PIPE ]]; then
-                            rm -f $REALFREQ_PIPE
-                        fi
                         break
                         ;;
 
@@ -291,30 +285,27 @@ if [ ! -d $MONITOR_PARENT_DIR ]; then
     done
 fi
 
-if [ ! -p "$REALFREQ_PIPE" ]; then
-    mkfifo $REALFREQ_PIPE
-fi
-
-# start realfreq in the background with $REALFREQ_PIPE as input and RREALFREQ_PROG_LOG as stderr
-start_realfreq(){
-    echo "[$SCRIPT_NAME] Starting realfreq"
-    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2> $REALFREQ_PROG_LOG  < $REALFREQ_PIPE
-    echo "[$SCRIPT_NAME] realfreq exited"
+realfreq_proc(){
+    (
+        while read line; do
+            echo $line >> $LOG
+            if [[ $line == *"realfreq-pipeline-output"* ]]; then
+                modbam_file=$(echo $line | grep -oP '(?<=realfreq-pipeline-output:).*')
+                CURRENT_BAM_FILEPATH=$modbam_file
+                echo "$modbam_file"
+            fi
+        done
+    ) |
+    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2> $REALFREQ_PROG_LOG
 }
 
 start_realfreq &
-REALFREQ_PID=$!
-
-echo "" > $REALFREQ_PIPE
-
-trap "kill $REALFREQ_PID; rm -f $REALFREQ_PIPE" EXIT
 
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR"
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
-    echo "EOF" > $REALFREQ_PIPE
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
 
 else # Else assume realtime analysis is desired
 
@@ -327,7 +318,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
         
     else
         echo "[$SCRIPT_NAME] running"
@@ -335,7 +326,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
         
     fi
     
@@ -344,8 +335,7 @@ else # Else assume realtime analysis is desired
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC
-    echo "EOF" > $REALFREQ_PIPE
+    "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
     
 fi
 
