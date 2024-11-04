@@ -299,8 +299,6 @@ realfreq_proc(){
     ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2> $REALFREQ_PROG_LOG
 }
 
-start_realfreq &
-
 if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR"
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
