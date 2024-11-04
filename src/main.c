@@ -93,6 +93,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         }
 
         double realtime0 = realtime();
+        // check if file_path ends with .bam
         if (strstr(file_path, ".bam") != NULL) { //bam file
             INFO("processing file %s", file_path);
             //initialise the core data structure
@@ -136,7 +137,6 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
                     break;
                 }
                 counter++;
-                WARNING("File format not supported: %s", file_path);
             }
 
             // free the databatch
