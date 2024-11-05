@@ -65,7 +65,7 @@ export DORADO_MODEL="dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg"
 
 ### Command
 ```bash
-./scripts/realfreq.sh -m [directory] -g [dorado_bin] -f [reference] -x [reference_index] -e [model] [options ...]
+./scripts/realfreq.sh -m [directory] [options ...]
 ```
 ### OPTIONS
 ```bash
