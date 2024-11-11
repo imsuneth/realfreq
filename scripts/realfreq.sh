@@ -248,6 +248,14 @@ if ! $resuming && ! $say_yes; then # If not resuming
 
 fi
 
+# wait till the monitor directory is available
+if [ ! -d $MONITOR_PARENT_DIR ]; then
+    echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
+    while [ ! -d $MONITOR_PARENT_DIR ]; do
+        sleep 1
+    done
+fi
+
 # Redirect stdout and stderr to log file as well as console
 exec > >(tee -a "$LOG") 2> >(tee -a "$LOG")
 
@@ -276,14 +284,6 @@ cat << EOF
     Say yes: $say_yes
 EOF
 )
-
-# wait till the monitor directory is available
-if [ ! -d $MONITOR_PARENT_DIR ]; then
-    echo "[$SCRIPT_NAME] Monitor directory $MONITOR_PARENT_DIR not found. Waiting for it to be created."
-    while [ ! -d $MONITOR_PARENT_DIR ]; do
-        sleep 1
-    done
-fi
 
 realfreq_proc(){
     (

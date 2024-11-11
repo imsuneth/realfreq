@@ -120,7 +120,7 @@ do
     t2=$(date)
     echo -e "$P5_FILEPATH\tp2s\t${START_TIME}\t${t2}" >> ${TIME_LOG}
 
-    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
+    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
     t3=$(date)
     echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${TIME_LOG}
 
@@ -145,7 +145,7 @@ do
     PIPELINE_OUTPUT="$BAM_FILEPATH"
     #=======================User End - Pipeline=======================
     
-    echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
+    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then

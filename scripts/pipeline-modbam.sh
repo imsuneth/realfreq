@@ -82,6 +82,7 @@ do
 
     PIPELINE_OUTPUT="$MODBAM_FILEPATH"
     #=======================User End - Pipeline=======================
+    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
     
     echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
 )&

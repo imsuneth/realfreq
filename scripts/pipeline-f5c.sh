@@ -117,6 +117,7 @@ do
     UNSORTED_BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unsorted.bam
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
+    F5C_FILEPATH=$SAM_DIR/$P5_PREFIX.f5c.tsv
 
     t1=$(date)
     ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "blue-crab failed. check $LOG_FILEPATH" $P5_FILEPATH
@@ -156,7 +157,7 @@ do
     PIPELINE_OUTPUT="$F5C_FILEPATH"
     #=======================User End - Pipeline=======================
     
-    echo "$PIPELINE_OUTPUT" > $REALFREQ_PIPE
+    echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
     if [ $counter -ge $MAX_PROC ]; then
