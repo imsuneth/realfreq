@@ -55,6 +55,9 @@ SOFTWARE.
 #define N_BASES 6 // A, C, G, T, N, U
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
+enum subtool {VIEW=0, MOD_FREQ=1};
+enum mode {MODE_MODBAM=0, MODE_F5C=1};
+
 /* user specified options */
 typedef struct {
 
@@ -78,7 +81,8 @@ typedef struct {
     int progress_interval;
     int write_interval;
 
-    int8_t subtool; //0:view, 1:mod-freq
+    enum subtool subtool; //0:view, 1:mod-freq
+    enum mode mode; //0:modbam, 1:f5c
 
     uint8_t n_mods;
 
@@ -98,7 +102,6 @@ typedef struct {
 } freq_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
-enum subtool {VIEW=0, MOD_FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {

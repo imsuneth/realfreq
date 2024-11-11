@@ -212,7 +212,7 @@ REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
 [ -z ${REALFREQ} ] && export REALFREQ=realfreq
 ${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
-[ -z ${REF} ] && echo $RED"[realfreq.sh] REF not set. export REF=/path/to/ref.fa. Ignore if not using default pipeline."$NORMAL
+[ -z ${REF} ] && echo $RED"[realfreq.sh] REF not set. realfreq-program will start in f5c/nanopolish mode (expecting TSV)."$NORMAL
 
 # Perform pipeline tool check
 "${PIPELINE_SCRIPT}" -c || { echo -e $RED"[$SCRIPT_NAME] Pipeline script tool check failed. Exiting."$NORMAL; exit 1; }

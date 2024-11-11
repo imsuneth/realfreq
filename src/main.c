@@ -95,6 +95,10 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         double realtime0 = realtime();
         // check if file_path ends with .bam
         if (strstr(file_path, ".bam") != NULL) { //bam file
+            if(opt.mode==MODE_F5C){
+                ERROR("%s", "realfreq started in f5c mode that does not support bam files. restart in modbam mode by providing a reference fasta file.");
+                exit(EXIT_FAILURE);
+            }
             INFO("processing file %s", file_path);
             //initialise the core data structure
             core_t* core = init_core(file_path, opt, realtime0);
@@ -162,6 +166,10 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
             free_core(core,opt);
 
         } else if (strstr(file_path, ".tsv") != NULL) { //tsv file
+            if(opt.mode==MODE_MODBAM){
+                ERROR("%s", "realfreq started in modbam mode that does not support tsv files. restart in f5c mode by not providing a reference fasta file.");
+                exit(EXIT_FAILURE);
+            }
             process_tsv_file(file_path, opt, freq_map);
         } else {
             WARNING("File format not supported: %s", file_path);
@@ -293,23 +301,19 @@ int main(int argc, char* argv[]) {
 
     // No arguments given
     if (argc - optind != 1 || fp_help == stdout) {
-        WARNING("%s","Missing arguments");
-        print_help_msg(fp_help, opt);
-        if(fp_help == stdout){
-            exit(EXIT_SUCCESS);
+        opt.mode = MODE_F5C;;
+        WARNING("%s","Reference file not provided. Expecting f5c/nanopolish TSV files from stdin");
+    } else {
+        opt.mode = MODE_MODBAM;
+        opt.ref_file = argv[optind];
+        if (opt.ref_file == NULL) {
+            WARNING("%s","Reference file not provided.");
+            print_help_msg(fp_help, opt);
+            if(fp_help == stdout){
+                exit(EXIT_SUCCESS);
+            }
+            exit(EXIT_FAILURE);
         }
-        exit(EXIT_FAILURE);
-    }
-
-    opt.ref_file = argv[optind];
-
-    if (opt.ref_file == NULL) {
-        WARNING("%s","Reference file not provided");
-        print_help_msg(fp_help, opt);
-        if(fp_help == stdout){
-            exit(EXIT_SUCCESS);
-        }
-        exit(EXIT_FAILURE);
     }
 
     if (opt.output_file == NULL) {
@@ -322,18 +326,21 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //load the reference genome, get the contexts, and destroy the reference
-    double realtime1 = realtime();
-    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, opt.ref_file);
-    load_ref(opt.ref_file);
-    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
+    if(opt.mode == MODE_MODBAM) {
+        //load the reference genome, get the contexts, and destroy the reference
+        double realtime1 = realtime();
+        fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, opt.ref_file);
+        load_ref(opt.ref_file);
+        fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
 
-    double realtime2 = realtime();
-    fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
-    load_ref_contexts(opt.n_mods, opt.req_mod_contexts);
-    fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
+        double realtime2 = realtime();
+        fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
+        load_ref_contexts(opt.n_mods, opt.req_mod_contexts);
+        fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
 
-    destroy_ref_forward();
+        destroy_ref_forward();
+    }
+    
 
     //initialise the freq_map
     khash_t(freqm)* freq_map = kh_init(freqm);
@@ -369,7 +376,9 @@ int main(int argc, char* argv[]) {
     }
     kh_destroy(freqm, freq_map);
 
-    destroy_ref(opt.n_mods);
+    if(opt.mode == MODE_MODBAM) {
+        destroy_ref(opt.n_mods);
+    }
 
     free_opt(&opt);
 

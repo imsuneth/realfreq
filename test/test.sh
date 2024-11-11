@@ -67,10 +67,9 @@ diff -q test/tmp/test3.out1.sorted.tsv test/tmp/test3.out2.sorted.tsv || die "Te
 rm test/tmp/test3.dump.tmp test/tmp/test3.out1.tsv test/tmp/test3.out2.tsv test/tmp/test3.log1.log test/tmp/test3.log2.log test/tmp/test3.out1.sorted.tsv test/tmp/test3.out2.sorted.tsv
 
 echo "Test 4: nanopore tsv input"
-echo_tsv | ex ./realfreq -d test/tmp/test4.dump.tmp -o test/tmp/test4.tsv test/tmp/genome_chr22.fa > test/tmp/test4.log || die "Test 4 failed running realfreq"
+echo_tsv | ex ./realfreq -d test/tmp/test4.dump.tmp -o test/tmp/test4.tsv > test/tmp/test4.log || die "Test 4 failed running realfreq"
 sort -k1,1 -k2,2n test/expected/test4.tsv > test/tmp/test4.expected.sorted.tsv
 sort -k1,1 -k2,2n test/tmp/test4.tsv > test/tmp/test4.sorted.tsv
 diff -q test/tmp/test4.expected.sorted.tsv test/tmp/test4.sorted.tsv || die "Test 4: diff failed"
-
 
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"
