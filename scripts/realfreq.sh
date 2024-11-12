@@ -329,9 +329,7 @@ else # Else assume realtime analysis is desired
     fi
     
     echo "[$SCRIPT_NAME] No new ${MONITOR_EXTENSION} files found in last ${TIME_INACTIVE} seconds."
-    echo "[$SCRIPT_NAME] converting left overs" | tee -a $LO
-
-    resume_flag="-r" # Set resume flag to true
+    echo "[$SCRIPT_NAME] converting left overs"
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
