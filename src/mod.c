@@ -1050,38 +1050,19 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
 
     for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
         if (kh_exist(freq_map, k)) {
-            freq_t * freq = kh_value(freq_map, k);
-            char *contig = NULL;
-            int start;
-            uint16_t ins_offset;
-            char mod_code;
-            char strand;
-            int haplotype;
             char * key = (char *) kh_key(freq_map, k);
-            decode_key(key, &contig, &start, &ins_offset, &mod_code, &strand, &haplotype);
-            size_t chrom_len = strlen(contig);
-            // fprintf(stderr, "writing chrom_len:%ld chrom:%s start:%d end:%d depth:%d n_mod:%d n_called:%d n_skipped:%d mod_code:%c mod_strand:%c ref_base:%c is_aln_cpg:%d\n", chrom_len, freq->contig, freq->start, freq->end, freq->depth, freq->n_mod, freq->n_called, freq->n_skipped, freq->mod_code, freq->strand, freq->ref_base, freq->is_aln_cpg);
-
-            size_t r = fwrite(&chrom_len, sizeof(size_t), 1, fp);
-            ASSERT_MSG(r==1, "Error writing chrom_len to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(contig, sizeof(char), chrom_len, fp);
-            ASSERT_MSG(r==chrom_len, "Error writing chrom to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&start, sizeof(int), 1, fp);
-            ASSERT_MSG(r==1, "Error writing start to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&freq->n_mod, sizeof(uint16_t), 1, fp);
-            ASSERT_MSG(r==1, "Error writing n_mod to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&freq->n_called, sizeof(uint16_t), 1, fp);
+            freq_t * val = kh_value(freq_map, k);
+            
+            size_t key_len = strlen(key);
+            
+            size_t r = fwrite(&key_len, sizeof(size_t), 1, fp);
+            ASSERT_MSG(r==1, "Error writing key_len to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(key, sizeof(char), key_len, fp);
+            ASSERT_MSG(r==key_len, "Error writing key to dump file: %s r:%ld\n", dump_file, r);
+            r = fwrite(&val->n_called, sizeof(uint16_t), 1, fp);
             ASSERT_MSG(r==1, "Error writing n_called to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&mod_code, sizeof(char), 1, fp);
-            ASSERT_MSG(r==1, "Error writing mod_code to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&strand, sizeof(char), 1, fp);
-            ASSERT_MSG(r==1, "Error writing mod_strand to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&ins_offset, sizeof(uint16_t), 1, fp);
-            ASSERT_MSG(r==1, "Error writing ins_offset to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&haplotype, sizeof(int), 1, fp);
-            ASSERT_MSG(r==1, "Error writing haplotype to dump file: %s r:%ld\n", dump_file, r);
-
-            free(contig);
+            r = fwrite(&val->n_mod, sizeof(uint16_t), 1, fp);
+            ASSERT_MSG(r==1, "Error writing n_mod to dump file: %s r:%ld\n", dump_file, r);
         }
     }
 
@@ -1097,51 +1078,34 @@ void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
 
     while (1) {
         
-        size_t chrom_len;
-        size_t r = fread(&chrom_len, sizeof(size_t), 1, fp);
+        size_t key_len;
+        size_t r = fread(&key_len, sizeof(size_t), 1, fp);
 
         if(feof(fp)){
             fprintf(stderr, "[realfreq] reading dump file %s reached EOF\n", dump_file);
             break;
         }
 
-        ASSERT_MSG(r==1, "Error reading chrom_len from dump file: %s r:%ld\n", dump_file, r);        
+        ASSERT_MSG(r==1, "Error reading key_len from dump file: %s r:%ld\n", dump_file, r);
+
+        char * key = (char *)malloc((key_len+1)*sizeof(char));
+        MALLOC_CHK(key);
+        r = fread(key, sizeof(char), key_len, fp);
+        ASSERT_MSG(r==key_len, "Error reading key from dump file: %s r:%ld\n", dump_file, r);
+        key[key_len] = '\0';
 
         freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
         MALLOC_CHK(freq);
-        char * contig = (char *)malloc((chrom_len+1)*sizeof(char));
-        MALLOC_CHK(contig);
-        int start;
-        uint16_t ins_offset;
-        char mod_code;
-        char strand;
-        int haplotype;
-
-        contig[chrom_len] = '\0';
-
-        r = fread(contig, sizeof(char), chrom_len, fp);
-        ASSERT_MSG(r==chrom_len, "Error reading chrom from dump file: %s r:%ld\n", dump_file, r);
-        r = fread(&start, sizeof(int), 1, fp);
-        ASSERT_MSG(r==1, "Error reading start from dump file: %s\n r:%ld", dump_file, r);
-        r = fread(&freq->n_mod, sizeof(uint16_t), 1, fp);
-        ASSERT_MSG(r==1, "Error reading n_mod from dump file: %s\n r:%ld", dump_file, r);
         r = fread(&freq->n_called, sizeof(uint16_t), 1, fp);
-        ASSERT_MSG(r==1, "Error reading n_called from dump file: %s\n r:%ld", dump_file, r);
-        r = fread(&mod_code, sizeof(char), 1, fp);
-        ASSERT_MSG(r==1, "Error reading mod_code from dump file: %s\n r:%ld", dump_file, r);
-        r = fread(&strand, sizeof(char), 1, fp);
-        ASSERT_MSG(r==1, "Error reading mod_strand from dump file: %s\n r:%ld", dump_file, r);
-        r = fread(&ins_offset, sizeof(uint16_t), 1, fp);
-        ASSERT_MSG(r==1, "Error reading ins_offset from dump file: %s\n r:%ld", dump_file, r);
-        r = fread(&haplotype, sizeof(int), 1, fp);
-        ASSERT_MSG(r==1, "Error reading haplotype from dump file: %s\n r:%ld", dump_file, r);
+        ASSERT_MSG(r==1, "Error reading n_called from dump file: %s r:%ld\n", dump_file, r);
+        r = fread(&freq->n_mod, sizeof(uint16_t), 1, fp);
+        ASSERT_MSG(r==1, "Error reading n_mod from dump file: %s r:%ld\n", dump_file, r);
 
-        char *key = make_key(contig, start, ins_offset, mod_code, strand, haplotype);
+        freq->key = key;
+
         int ret;
         khiter_t k = kh_put(freqm, freq_map, key, &ret);
         kh_value(freq_map, k) = freq;
-
-        free(contig);
     }
 
     fclose(fp);

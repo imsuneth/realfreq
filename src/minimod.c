@@ -411,18 +411,6 @@ void output_db(core_t* core, db_t* db) {
 
 }
 
-void output_core(core_t* core) {
-    double output_start = realtime();
-
-    if(core->opt.subtool == MOD_FREQ){
-        print_freq_output(core->opt, core->freq_map);
-        dump_stats_map(core->opt.dump_file, core->freq_map);
-    }
-
-    double output_end = realtime();
-    core->output_time += (output_end-output_start);
-}
-
 /* partially free a data batch - only the read dependent allocations are freed */
 void free_db_tmp(core_t* core, db_t* db) {
     int32_t i = 0;
