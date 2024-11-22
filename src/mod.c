@@ -640,6 +640,9 @@ void update_freq_map(core_t * core, db_t * db) {
 }
 
 void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
+
+    double start = realtime();
+
     FILE * output_fp;
     if(opt.output_file == NULL) {
         output_fp = stdout;
@@ -721,6 +724,9 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
     }
 
     fclose(output_fp);
+
+    double end = realtime();
+    fprintf(stderr, "[realfreq] Time taken to write output: %.3f seconds\n", end-start);
 }
 
 static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
@@ -1042,6 +1048,8 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 
 void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
 
+    double start = realtime();
+
     FILE *fp = fopen(dump_file, "wb");
     if (fp == NULL) {
         ERROR("Cannot open dump file %s\n", dump_file);
@@ -1067,6 +1075,9 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
     }
 
     fclose(fp);
+
+    double end = realtime();
+    fprintf(stderr, "[realfreq] Time taken to dump stats map %.3f seconds\n", end-start);
 }
 
 void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
