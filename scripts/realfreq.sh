@@ -296,7 +296,7 @@ realfreq_proc(){
             fi
         done
     ) |
-    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2> $REALFREQ_PROG_LOG
+    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2>> $REALFREQ_PROG_LOG
 }
 
 if ! $realtime; then # If non-realtime option set
