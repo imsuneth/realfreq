@@ -40,6 +40,7 @@ SOFTWARE.
 #include "misc.h"
 #include "error.h"
 #include "khash.h"
+#include "buff_writer.h"
 
 #include <sys/wait.h>
 #include <unistd.h>

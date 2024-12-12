@@ -31,6 +31,7 @@ SOFTWARE.
 #define PULSE_H
 
 #include "minimod.h"
+#include "buff_writer.h"
 
 uint16_t *get_mod_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
 const char *get_mm_tag_ptr(bam1_t *record);
@@ -38,7 +39,7 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
 void modbases_single(core_t* core, db_t* db, int32_t i);
 void update_freq_map(core_t* core, db_t* db);
 void print_freq_tsv_header(core_t * core);
-void print_freq_output(opt_t opt, khash_t(freqm) *freq_map);
+void print_freq_output(opt_t opt, khash_t(freqm) *freq_map, buff_writer_t *buff_writer);
 char* get_stats_range(int start, int end, khash_t(freqm) *freq_map);
 char* get_stats_contig(const char* contig, khash_t(freqm) *freq_map);
 char* get_stats_contig_range(const char *contig, int start, int end, khash_t(freqm) *freq_map);

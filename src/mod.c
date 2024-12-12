@@ -33,6 +33,7 @@ SOFTWARE.
 #include "error.h"
 #include "khash.h"
 #include "ref.h"
+#include "buff_writer.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -639,19 +640,12 @@ void update_freq_map(core_t * core, db_t * db) {
     }
 }
 
-void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
+void print_freq_output(opt_t opt, khash_t(freqm) *freq_map, buff_writer_t *buff_writer) {
 
     double start = realtime();
 
-    FILE * output_fp;
-    if(opt.output_file == NULL) {
-        output_fp = stdout;
-    } else {
-        output_fp = fopen(opt.output_file, "w");
-        if(output_fp == NULL) {
-            ERROR("Could not open output file %s", opt.output_file);
-            exit(EXIT_FAILURE);
-        }
+    if(opt.output_file != NULL) {
+        buff_writer_clear_file(buff_writer);
     }
 
     if(!opt.bedmethyl_out) { // tsv output header, no header for bedmethyl
@@ -665,7 +659,9 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
             haplotype = "\thaplotype";
         }
 
-        fprintf(output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+        // fprintf(output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+        buff_writer_pushf(buff_writer, "%s%s%s\n", common, ins_offset, haplotype);
+        
     }
 
     if(opt.bedmethyl_out) {
@@ -684,7 +680,8 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
                 int end = ref_pos+1;
-                fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+                // fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+                buff_writer_pushf(buff_writer, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
                 free(contig);
             }
         }
@@ -705,25 +702,31 @@ void print_freq_output(opt_t opt, khash_t(freqm) *freq_map) {
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-                fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                // fprintf(output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                buff_writer_pushf(buff_writer, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
 
                 if(opt.insertions){
-                    fprintf(output_fp, "\t%d", ins_offset);
+                    // fprintf(output_fp, "\t%d", ins_offset);
+                    buff_writer_pushf(buff_writer, "\t%d", ins_offset);
                 } 
                 if(opt.haplotypes) {
                     if(haplotype == -1){
-                        fprintf(output_fp, "\t*");
+                        // fprintf(output_fp, "\t*");
+                        buff_writer_pushf(buff_writer, "\t*");
                     } else {
-                        fprintf(output_fp, "\t%d", haplotype);
+                        // fprintf(output_fp, "\t%d", haplotype);
+                        buff_writer_pushf(buff_writer, "\t%d", haplotype);
                     }
                 }
-                fprintf(output_fp, "\n");
+                // fprintf(output_fp, "\n");
+                buff_writer_pushf(buff_writer, "\n");
                 free(contig);
             }
         }
     }
-
-    fclose(output_fp);
+    if(opt.output_file != NULL) {
+        buff_writer_flush(buff_writer);
+    }
 
     double end = realtime();
     fprintf(stderr, "[realfreq] Time taken to write output: %.3f seconds\n", end-start);

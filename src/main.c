@@ -38,6 +38,7 @@ SOFTWARE.
 #include "ref.h"
 #include "misc.h"
 #include "server.h"
+#include "buff_writer.h"
 
 #define FILEPATH_LEN 1024
 pthread_t server_thread;
@@ -68,6 +69,7 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
 void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
     char *file_path = (char *)malloc(FILEPATH_LEN * sizeof(char));
     INFO("%s", "reading file path from stdin");
+    buff_writer_t * buff_writer = buff_writer_init(100000 * 200, opt.output_file); // 100k lines of 200 chars each
     double last_write = 0;
     while (1) {
         double realtime_prog = realtime();
@@ -75,19 +77,19 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         int ret = fscanf(stdin, "%s", file_path);
         if (ferror(stdin)) {
             INFO("%s", "error reading from stdin");
-            print_freq_output(opt, freq_map);
+            print_freq_output(opt, freq_map, buff_writer);
             dump_stats_map(opt.dump_file, freq_map);
             break;
         } 
         if (feof(stdin)) {
             INFO("%s", "end of stdin");
-            print_freq_output(opt, freq_map);
+            print_freq_output(opt, freq_map, buff_writer);
             dump_stats_map(opt.dump_file, freq_map);
             break;
         }
         if(ret!=1) {
             INFO("%s", "error reading from stdin");
-            print_freq_output(opt, freq_map);
+            print_freq_output(opt, freq_map, buff_writer);
             dump_stats_map(opt.dump_file, freq_map);
             break;
         }
@@ -179,7 +181,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         double realtime1 = realtime();
 
         if(opt.write_interval!=-1 && (opt.write_interval==0 || last_write - realtime1 > opt.write_interval)) {
-            print_freq_output(opt, freq_map);
+            print_freq_output(opt, freq_map, buff_writer);
         }
 
         last_write = realtime1;
@@ -201,6 +203,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         
         INFO("processed file %s", file_path);
     }
+    buff_writer_destroy(buff_writer);
     free(file_path);
 }
 
