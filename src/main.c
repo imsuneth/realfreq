@@ -45,7 +45,7 @@ pthread_t server_thread;
 void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help, "Usage: realfreq [options..] ref.fa\nrealfreq reads the input bam file path from stdin\n");
     fprintf(fp_help, "Options:\n");
-    fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));                                                    //0
+    fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));                                                  //0
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);                                                           //1
     fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str); //2
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);                                                                        //3
@@ -62,7 +62,8 @@ void print_help_msg(FILE * fp_help, opt_t opt) {
     fprintf(fp_help,"   -V                         print version\n");                                                                                                           //14
     fprintf(fp_help,"   -w INT                     write output every INT seconds if new modifications found (-1: only at the end, 0: per input) [%d]\n", opt.write_interval);  //15
     fprintf(fp_help,"   -I                         enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));                                                                                         //16
-    fprintf(fp_help,"   -H                         enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));                                                                                         //17
+    fprintf(fp_help,"   -H                         enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));        
+    fprintf(fp_help,"   --tsv                      start in tsv input mode [%s]\n", (opt.mode==MODE_F5C?"yes":"no"));                                                                             //17
 }
 
 void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
@@ -96,7 +97,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
         // check if file_path ends with .bam
         if (strstr(file_path, ".bam") != NULL) { //bam file
             if(opt.mode==MODE_F5C){
-                ERROR("%s", "realfreq started in f5c mode that does not support bam files. restart in modbam mode by providing a reference fasta file.");
+                ERROR("%s", "realfreq started in tsv mode that does not support bam files. restart without --tsv flag.");
                 exit(EXIT_FAILURE);
             }
             INFO("processing file %s", file_path);
@@ -167,7 +168,7 @@ void start_realfreq(opt_t opt, khash_t(freqm)* freq_map) {
 
         } else if (strstr(file_path, ".tsv") != NULL) { //tsv file
             if(opt.mode==MODE_MODBAM){
-                ERROR("%s", "realfreq started in modbam mode that does not support tsv files. restart in f5c mode by not providing a reference fasta file.");
+                ERROR("%s", "realfreq started in modbam mode that does not support tsv files. restart with --tsv flag.");
                 exit(EXIT_FAILURE);
             }
             process_tsv_file(file_path, opt, freq_map);
@@ -212,11 +213,19 @@ int main(int argc, char* argv[]) {
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
     opt.subtool = MOD_FREQ;
+    opt.mode = MODE_MODBAM;
     //parse the user args
     const char* optstring = "bc:m:t:K:B:hp:o:d:l:rs:v:Vw:";
+    static struct option long_options[] = {
+        {"tsv", no_argument, 0, 1000}, // start in tsv mode (.tsv input and reference is not required)
+        {0, 0, 0, 0}                   // End of options
+    };
+
     int32_t c = -1;
+    int option_index = 0;
+
     //parse the user args
-    while ((c = getopt(argc, argv, optstring)) != -1) {
+    while ((c = getopt_long(argc, argv, optstring, long_options, &option_index)) != -1) {
         if (c == 'b') {
             opt.bedmethyl_out = 1;
         } else if (c == 'c') {
@@ -280,6 +289,9 @@ int main(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         } else if (c == 'w') {
             opt.write_interval = atoi(optarg);
+        } else if (c == 1000) { // long option 'tsv'
+            printf("Expecting tsv as input\n");
+            opt.mode = MODE_F5C;
         } else {
             ERROR("Unknown option %c", c);
             exit(EXIT_FAILURE);
@@ -301,19 +313,19 @@ int main(int argc, char* argv[]) {
 
     // No arguments given
     if (argc - optind != 1 || fp_help == stdout) {
-        opt.mode = MODE_F5C;;
-        WARNING("%s","Reference file not provided. Expecting f5c/nanopolish TSV files from stdin");
-    } else {
-        opt.mode = MODE_MODBAM;
-        opt.ref_file = argv[optind];
-        if (opt.ref_file == NULL) {
-            WARNING("%s","Reference file not provided.");
+        if(opt.mode == MODE_MODBAM) {
+            WARNING("%s","Reference file not provided. If you want to start in tsv mode, use --tsv flag.");
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
                 exit(EXIT_SUCCESS);
             }
             exit(EXIT_FAILURE);
         }
+    } else {
+        if(opt.mode == MODE_F5C) {
+            WARNING("%s","Reference file not required in tsv mode. If you want to start in modbam mode, restart without --tsv flag.");
+        }
+        opt.ref_file = argv[optind];
     }
 
     if (opt.output_file == NULL) {

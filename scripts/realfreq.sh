@@ -20,6 +20,7 @@
 #%    -p [processes]                                Maximum number of parallel conversion processes [default: 1]
 #%    -a [extension]                                Watch for files with extension [default: pod5]
 #%    -b                                            Output bedmethyl format
+#%    --tsv                                         Start realfreq in tsv mode
 #%
 #% ADVANCED/DEBUGGING OPTIONS
 #%
@@ -94,6 +95,18 @@ OUTPUT_FILE=
 server_port=""
 MONITOR_EXTENSION="pod5"
 bedmethyl_output=false
+tsv_mode=false
+
+# Preprocess long options
+for arg in "$@"; do
+    case "$arg" in
+        --tsv)
+            tsv_mode=true
+            # Remove --tsv from arguments for getopts
+            shift
+            ;;
+    esac
+done
 
 ## Handle flags
 while getopts "m:o:l:hinryd:t:s:f:p:c:a:b" o; do
@@ -196,6 +209,11 @@ if [ $resuming == true ]; then
     resume_flag="-r"
 fi
 
+tsv_mode_flag=""
+if [ $tsv_mode == true ]; then
+    tsv_mode_flag="--tsv"
+fi
+
 if [ -z ${REALFREQ_THREADS} ]; then
     REALFREQ_THREADS=1
 fi
@@ -282,6 +300,7 @@ cat << EOF
     Pipeline log: $PIPELINE_LOG
     Realfreq log: $REALFREQ_PROG_LOG
     Say yes: $say_yes
+    TSV mode: $tsv_mode
 EOF
 )
 
@@ -296,7 +315,7 @@ realfreq_proc(){
             fi
         done
     ) |
-    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag 2>> $REALFREQ_PROG_LOG
+    ${REALFREQ} -t $REALFREQ_THREADS -d $DUMP_FILE -o $OUTPUT_FILE $REF -l $TMP_FILE_PATH $server_port_flag $bedmethyl_output_flag $resume_flag $tsv_mode_flag 2>> $REALFREQ_PROG_LOG
 }
 
 if ! $realtime; then # If non-realtime option set
