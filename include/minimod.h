@@ -96,8 +96,8 @@ typedef struct {
 } opt_t;
 
 typedef struct {
-    uint16_t n_called;
-    uint16_t n_mod;
+    uint32_t n_called;
+    uint32_t n_mod;
     char * key;
 } freq_t;
 
@@ -108,7 +108,7 @@ typedef struct {
     //bam records
     bam1_t** bam_recs;
     int32_t cap_bam_recs;
-    int32_t n_bam_recs;
+    int32_t n_bam_recs; // number of reads processed
 
     //mod tags
     const char ** mm;
@@ -129,9 +129,9 @@ typedef struct {
     double *means;
 
     //stats
-    int64_t sum_bytes;
-    int32_t skipped_reads; //reads skipped due to various reasons
-    int32_t skipped_reads_bytes;
+    int32_t total_reads; //number of reads in the bam file
+    int64_t total_bytes; //number of bytes in the bam file
+    int64_t processed_bytes; //number of bytes processed
 
 } db_t;
 
@@ -168,10 +168,10 @@ typedef struct {
     double output_time;
 
     //stats //set by output_db
-    int64_t sum_bytes;
-    int64_t total_reads; //total number entries in the bam file 
-    int64_t skipped_reads; //reads skipped due to various reasons
-    int64_t skipped_reads_bytes;
+    uint32_t total_reads; //total number entries in the bam file
+    uint64_t total_bytes; //total number of bytes in the bam file
+    uint32_t processed_reads; //total number of reads processed
+    uint64_t processed_bytes; //total number of bytes processed
 
     khash_t(freqm)* freq_map;
 

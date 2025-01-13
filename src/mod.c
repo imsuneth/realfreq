@@ -612,6 +612,12 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq_t * freq = kh_value(freq_map, k);
                     freq->n_called += is_called;
                     freq->n_mod += is_mod;
+
+                    // check if freq->n_called overflows
+                    if(freq->n_called == 0){
+                        ERROR("n_called overflowed for key %s. Please report this issue.", key);
+                        exit(EXIT_FAILURE);
+                    }
                 }
 
                 if(core->opt.haplotypes) {
@@ -632,6 +638,12 @@ void update_freq_map(core_t * core, db_t * db) {
                         freq_t * freq = kh_value(freq_map, k);
                         freq->n_called += is_called;
                         freq->n_mod += is_mod;
+
+                        // check if freq->n_called overflows
+                        if(freq->n_called == 0){
+                            ERROR("n_called overflowed for key %s. Please report this issue.", key);
+                            exit(EXIT_FAILURE);
+                        }
                     }
                 }
             }
@@ -1067,9 +1079,9 @@ void dump_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
             ASSERT_MSG(r==1, "Error writing key_len to dump file: %s r:%ld\n", dump_file, r);
             r = fwrite(key, sizeof(char), key_len, fp);
             ASSERT_MSG(r==key_len, "Error writing key to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&val->n_called, sizeof(uint16_t), 1, fp);
+            r = fwrite(&val->n_called, sizeof(uint32_t), 1, fp);
             ASSERT_MSG(r==1, "Error writing n_called to dump file: %s r:%ld\n", dump_file, r);
-            r = fwrite(&val->n_mod, sizeof(uint16_t), 1, fp);
+            r = fwrite(&val->n_mod, sizeof(uint32_t), 1, fp);
             ASSERT_MSG(r==1, "Error writing n_mod to dump file: %s r:%ld\n", dump_file, r);
         }
     }
@@ -1107,9 +1119,9 @@ void load_stats_map(const char * dump_file, khash_t(freqm) * freq_map){
 
         freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
         MALLOC_CHK(freq);
-        r = fread(&freq->n_called, sizeof(uint16_t), 1, fp);
+        r = fread(&freq->n_called, sizeof(uint32_t), 1, fp);
         ASSERT_MSG(r==1, "Error reading n_called from dump file: %s r:%ld\n", dump_file, r);
-        r = fread(&freq->n_mod, sizeof(uint16_t), 1, fp);
+        r = fread(&freq->n_mod, sizeof(uint32_t), 1, fp);
         ASSERT_MSG(r==1, "Error reading n_mod from dump file: %s r:%ld\n", dump_file, r);
 
         freq->key = key;
