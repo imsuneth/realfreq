@@ -4,7 +4,12 @@ Real-time base modification frequency monitoring tool along with a real-time mod
 ![usage-default](docs/figs/default.png)
 
 # Installation
+## Pre-requisites
+```bash
+sudo apt-get install zlib1g-dev  # install zlib development libraries
+```
 ## Building from source
+
 ```bash
 git clone https://github.com/imsuneth/realfreq
 cd realfreq
@@ -96,6 +101,7 @@ For all available arguments, see [standalone realfreq program](#standalone-realf
     -p [processes]                                Maximum number of parallel conversion processes [default: 1]
     -a [extension]                                Watch for files with extension [default: pod5]
     -b                                            Output bedmethyl format
+    -w INT                                        Write output (tsv/bedmethyl) every INT seconds (-1: only at the end, 0: per batch) [default: 0]
 
  ADVANCED/DEBUGGING OPTIONS
 
@@ -110,25 +116,25 @@ For all available arguments, see [standalone realfreq program](#standalone-realf
 ### Environmental variables
 Required for tools in pipeline scripts
 - DORADO_BIN:  Path to the directory containing dorado binary
-- REF: Reference genome for realfreq-program
-- REFIDX: Reference genome index for minimap2 alignment
+- REFIDX: Reference genome index for minimap2 alignment. We need to provide a REFIDX (reference index) when using the default pipeline as minimap2 will not perform the repetitive computation of the index per each input file. The index can be generated from reference.fasta using Minimap2 using the command below
+    ```bash
+    minimap2 -ax map-ont reference.fasta -d reference.idx
+    ```
+
 - DORADO_MODEL:  Basecalling + base modification model
 
 Required for <em>realfreq-script</em> and <em>realfreq-program</em>
+- REF: Reference genome for realfreq-program
 - REALFREQ_AUTO: If set to 1, realfreq.sh terminates automatically at the end of MinKNOW sequencing run.
 - REALFREQ_THREADS: Number of threads used for modification calling (default 1)
 
-```bash
-export REALFREQ_THREADS=8
-export REALFREQ_AUTO=1
-```
+    ```bash
+    export REALFREQ_THREADS=8
+    export REALFREQ_AUTO=1
+    ```
 
 ### Tips
 - Number of threads used by each tool in "raw signal to modBAM" pipeline can be changed appropriately in scripts/realfreq/pipeline.sh
-- <em>reference_index</em> can be generated from <em>reference.fasta</em> using samtools running the command below
-```bash
-samtools faidx <reference.fasta>
-```
 
 ## Standalone <em>realfreq-program</em>
 <em>realfreq</em> takes the input file path (modBAM files or nanopolish/f5c TSV output files) form stdin. Therefore, file path can be either piped to <em>realfreq</em> or a list of paths can be given in a file. Command for the two scenarios are as follows.
