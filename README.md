@@ -1,7 +1,10 @@
 # <em>realfreq</em>
 Real-time base modification frequency monitoring tool along with a real-time modification calling pipeline.
-
 ![usage-default](docs/figs/default.png)
+
+*Latest release* : [https://github.com/imsuneth/realfreq/releases/latest](https://github.com/imsuneth/realfreq/releases/latest)<br/>
+*Pre-print* : [https://doi.org/10.1101/2025.01.23.634192](https://www.biorxiv.org/content/10.1101/2025.01.23.634192v1)<br/>
+*Publication* : [https://doi.org/10.1093/bioinformatics/btaf151](https://academic.oup.com/bioinformatics/article/41/4/btaf151/8107218)<br/>
 
 # Installation
 ## Pre-requisites
@@ -282,3 +285,24 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	100.000000
 | 8. end   | int | = field 3 |
 | 9. n_mod | int | = field 5 |
 | 10. freq | float | n_mod/n_called ratio |
+
+## Citation
+Please cite the following in your publications when using *realfreq*:
+
+> Samarasinghe, S., Deveson, I. & Gamaarachchi, H. Realfreq: real-time base modification analysis for nanopore sequencing. Bioinformatics 41, btaf151 (2025). https://doi.org/10.1093/bioinformatics/btaf151
+```
+
+@article{samarasinghe_realfreq_2025,
+    title = {Realfreq: real-time base modification analysis for nanopore sequencing},
+    author = {Samarasinghe, Suneth and Deveson, Ira and Gamaarachchi, Hasindu},
+    journal = {Oxford bioinformatics},
+    volume = {41},
+    number = {4},
+    pages = {btaf151},
+    year = {2025},
+    publisher={Oxford University Press}
+}
+
+```
+
+
